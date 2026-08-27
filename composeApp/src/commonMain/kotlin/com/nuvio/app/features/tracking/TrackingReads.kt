@@ -153,4 +153,13 @@ interface TrackingProgressProvider {
     fun normalizeParentContentId(parentContentId: String, videoId: String?): String = parentContentId
     suspend fun refreshEpisodeProgress(contentId: String, forceRefresh: Boolean) = Unit
     fun isHiddenFromProgress(contentId: String): Boolean = false
+
+    /**
+     * True when the provider's list still has this content marked as being watched.
+     *
+     * Next Up is seeded from watch history, which says nothing about whether the viewer considers
+     * a show current. Providers that model a watchlist can answer this so a finished show does not
+     * keep offering episodes. Providers without the concept answer true and behave as before.
+     */
+    fun isTrackedAsWatching(contentId: String): Boolean = true
 }

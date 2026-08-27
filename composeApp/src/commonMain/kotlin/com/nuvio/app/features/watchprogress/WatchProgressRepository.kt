@@ -1684,6 +1684,9 @@ object WatchProgressRepository {
         return activeProgressProvider()?.isHiddenFromProgress(contentId) == true
     }
 
+    fun isTrackedAsWatching(contentId: String): Boolean =
+        activeProgressProvider()?.isTrackedAsWatching(contentId) != false
+
     fun activeProviderOwnsCompletedHistoryProjection(): Boolean =
         activeProgressProvider()?.ownsCompletedHistoryProjection == true
 

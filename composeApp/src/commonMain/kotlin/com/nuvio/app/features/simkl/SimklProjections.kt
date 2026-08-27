@@ -530,16 +530,48 @@ private fun daysInMonths(year: Int): IntArray = if (year.isLeapYear()) {
  */
 internal fun TrackingMediaReference.resolveAnimeEpisodeForSimkl(): TrackingMediaReference {
     if (kind != TrackingMediaKind.ANIME) return this
-    if (episode == null) {
-        val videoId = catalog?.videoId
-        val parsed = videoId?.let { parseSimklAnimeVideoId(it) }
-        if (parsed?.episodeNumber == null) {
-            return copy(episode = TrackingEpisode(season = null, number = 1))
-        }
-    }
-    val videoId = catalog?.videoId ?: return stripAnimeIdsIfSeasoned()
-    val parsed = parseSimklAnimeVideoId(videoId) ?: return stripAnimeIdsIfSeasoned()
-    val videoEpisodeNumber = parsed.episodeNumber ?: return stripAnimeIdsIfSeasoned()
+    singleEpisodeAnimeDefault()?.let { return it }
+    return resolveAnimeEpisodeByVideoId() ?: stripAnimeIdsIfSeasoned()
+}
+
+/**
+ * Snapshot-aware variant of [resolveAnimeEpisodeForSimkl].
+ *
+ * The video ID stays the most precise signal, so it is tried first. When it carries no anime ID -
+ * the addon serves the whole franchise under a parent IMDB ID and numbers episodes by TVDB season -
+ * the snapshot's own season mapping decides which entry owns the episode. Only when neither
+ * resolves does the reference fall back to the parent IMDB identity.
+ */
+internal fun SimklSyncSnapshot.resolveAnimeEpisodeForSimkl(
+    reference: TrackingMediaReference,
+): TrackingMediaReference {
+    if (reference.kind != TrackingMediaKind.ANIME) return reference
+    reference.singleEpisodeAnimeDefault()?.let { return it }
+    return reference.resolveAnimeEpisodeByVideoId()
+        ?: resolveTvdbSeasonedAnimeEpisode(reference)
+        ?: reference.stripAnimeIdsIfSeasoned()
+}
+
+/**
+ * Episode 1 for an anime reference that carries no episode anywhere.
+ *
+ * Simkl numbers every anime entry from 1, so a reference with no episode of its own and no episode
+ * number in its video ID - a movie, an OVA, a single-cour entry opened from the library - marks the
+ * first episode instead of nothing at all. Returns null when there is an episode left to resolve.
+ */
+private fun TrackingMediaReference.singleEpisodeAnimeDefault(): TrackingMediaReference? {
+    if (episode != null) return null
+    val parsed = catalog?.videoId?.let { videoId -> parseSimklAnimeVideoId(videoId) }
+    if (parsed?.episodeNumber != null) return null
+    return copy(episode = TrackingEpisode(season = null, number = 1))
+}
+
+/** Returns null when the video ID carries no anime-tracker ID with an episode number. */
+private fun TrackingMediaReference.resolveAnimeEpisodeByVideoId(): TrackingMediaReference? {
+    if (kind != TrackingMediaKind.ANIME) return null
+    val videoId = catalog?.videoId ?: return null
+    val parsed = parseSimklAnimeVideoId(videoId) ?: return null
+    val videoEpisodeNumber = parsed.episodeNumber ?: return null
 
     // Override IDs: use ONLY the anime-specific ID from videoId.
     // Clear all other IDs to prevent Simkl from matching a wrong entry
@@ -577,6 +609,78 @@ private fun TrackingMediaReference.stripAnimeIdsIfSeasoned(): TrackingMediaRefer
     return copy(
         ids = ids.copy(mal = null, kitsu = null, anidb = null, anilist = null, simkl = null),
     )
+}
+
+/**
+ * Rewrites a TVDB-seasoned anime reference onto the Simkl entry that actually owns the episode.
+ *
+ * Simkl splits an anime franchise into one entry per season or cour, each numbering its episodes
+ * from 1, while a meta addon serves the whole run under a parent IMDB ID with TVDB season numbers.
+ * Sending those TVDB coordinates against the parent ID makes Simkl resolve whichever entry happens
+ * to carry that ID - usually the first season, which has no such episode - so the mark lands on the
+ * wrong entry or nowhere at all.
+ *
+ * Every entry does carry Simkl's own mapping from its flat episode numbers to TVDB coordinates, so
+ * the entry that already maps episodes of the requested TVDB season identifies itself, and the
+ * constant offset between the two numberings converts the episode. The rewrite emits that entry's
+ * IDs with a flat episode number and no season, the same shape the video-ID path produces.
+ *
+ * Returns null - leaving the caller on its existing fallback - unless exactly one entry claims the
+ * episode, so an ambiguous franchise never gets a guess written to the tracker.
+ */
+private fun SimklSyncSnapshot.resolveTvdbSeasonedAnimeEpisode(
+    reference: TrackingMediaReference,
+): TrackingMediaReference? {
+    val tvdbSeason = reference.episode?.season?.takeIf { it > 0 } ?: return null
+    val tvdbEpisode = reference.episode?.number ?: return null
+
+    val claims = entries.mapNotNull { entry ->
+        if (entry.mediaType != SimklMediaType.ANIME || entry.isMovieEntry()) return@mapNotNull null
+        val media = entry.media ?: return@mapNotNull null
+        if (!media.toTrackingExternalIds().sharesIdentityWith(reference.ids)) return@mapNotNull null
+        entry.flatEpisodeNumberForTvdb(tvdbSeason, tvdbEpisode)?.let { number -> media to number }
+    }
+    val (media, flatEpisodeNumber) = claims.singleOrNull() ?: return null
+
+    return reference.copy(
+        ids = media.toTrackingExternalIds(),
+        episode = TrackingEpisode(season = null, number = flatEpisodeNumber),
+    )
+}
+
+/**
+ * This entry's own episode number for TVDB [tvdbSeason]x[tvdbEpisode], or null when it does not
+ * cover that episode.
+ *
+ * Only watched episodes appear in [SimklLibraryEntry.seasons], so the episode being marked is by
+ * definition absent. What the watched ones establish is the offset between the two numberings,
+ * which holds for the rest of the entry. A single offset must explain them all: a season the entry
+ * maps in more than one run is not a numbering this can extrapolate. The resulting number still has
+ * to fall inside the entry - bounded by its episode count, or by the furthest episode seen when the
+ * count is unknown - otherwise a sibling entry owns the episode instead.
+ */
+private fun SimklLibraryEntry.flatEpisodeNumberForTvdb(tvdbSeason: Int, tvdbEpisode: Int): Int? {
+    val mappedEpisodes = seasons
+        .asSequence()
+        .flatMap { season -> season.episodes.asSequence() }
+        .mapNotNull { episode ->
+            val mapping = episode.tvdb ?: return@mapNotNull null
+            if (mapping.season != tvdbSeason) return@mapNotNull null
+            val mappedNumber = mapping.episode ?: return@mapNotNull null
+            val flatNumber = episode.number ?: return@mapNotNull null
+            flatNumber to mappedNumber
+        }
+        .toList()
+    if (mappedEpisodes.isEmpty()) return null
+
+    val offset = mappedEpisodes.mapTo(mutableSetOf()) { (flat, mapped) -> mapped - flat }.singleOrNull()
+        ?: return null
+    val flatEpisodeNumber = tvdbEpisode - offset
+    if (flatEpisodeNumber < 1) return null
+
+    val highestPossible = totalEpisodesCount.takeIf { it > 0 }
+        ?: mappedEpisodes.maxOf { (flat, _) -> flat }
+    return flatEpisodeNumber.takeIf { it <= highestPossible }
 }
 
 /**

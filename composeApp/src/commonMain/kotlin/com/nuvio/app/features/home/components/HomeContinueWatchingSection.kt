@@ -27,6 +27,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -135,28 +136,28 @@ private fun localizedContinueWatchingMetaLine(item: ContinueWatchingItem): Strin
 private fun ContinueWatchingItem.isCloudLibraryItem(): Boolean =
     parentMetaType.equals(CloudLibraryContentType, ignoreCase = true)
 
-private fun ContinueWatchingItem.continueWatchingArtworkUrl(
+internal fun ContinueWatchingItem.continueWatchingArtworkUrl(
     useEpisodeThumbnails: Boolean,
 ): String? = when {
-    isNextUp && useEpisodeThumbnails -> firstNonBlank(
+    isNextUp && useEpisodeThumbnails -> firstUsableArtwork(
         episodeThumbnail,
         poster,
         background,
         imageUrl,
     )
-    isNextUp -> firstNonBlank(
+    isNextUp -> firstUsableArtwork(
         poster,
         background,
         episodeThumbnail,
         imageUrl,
     )
-    useEpisodeThumbnails -> firstNonBlank(
+    useEpisodeThumbnails -> firstUsableArtwork(
         episodeThumbnail,
         poster,
         background,
         imageUrl,
     )
-    else -> firstNonBlank(
+    else -> firstUsableArtwork(
         poster,
         background,
         episodeThumbnail,
@@ -164,7 +165,7 @@ private fun ContinueWatchingItem.continueWatchingArtworkUrl(
     )
 }
 
-private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
+internal fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
     useEpisodeThumbnails: Boolean,
 ): String? {
     if (seasonNumber == null || episodeNumber == null) {
@@ -176,7 +177,7 @@ private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
         ?.trim()
         ?.takeIf { it.isNotBlank() && it != normalizedEpisodeThumbnail }
 
-    return firstNonBlank(
+    return firstUsableArtwork(
         poster,
         background,
         nonEpisodeImageUrl,
@@ -185,35 +186,35 @@ private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
     )
 }
 
-private fun ContinueWatchingItem.continueWatchingCardArtworkUrl(
+internal fun ContinueWatchingItem.continueWatchingCardArtworkUrl(
     useEpisodeThumbnails: Boolean,
     preferBackdropForNextUp: Boolean,
 ): String? = when {
-    isNextUp && preferBackdropForNextUp -> firstNonBlank(
+    isNextUp && preferBackdropForNextUp -> firstUsableArtwork(
         background,
         poster,
         episodeThumbnail,
         imageUrl,
     )
-    isNextUp && useEpisodeThumbnails -> firstNonBlank(
+    isNextUp && useEpisodeThumbnails -> firstUsableArtwork(
         episodeThumbnail,
         background,
         poster,
         imageUrl,
     )
-    isNextUp -> firstNonBlank(
+    isNextUp -> firstUsableArtwork(
         background,
         poster,
         episodeThumbnail,
         imageUrl,
     )
-    useEpisodeThumbnails -> firstNonBlank(
+    useEpisodeThumbnails -> firstUsableArtwork(
         episodeThumbnail,
         background,
         poster,
         imageUrl,
     )
-    else -> firstNonBlank(
+    else -> firstUsableArtwork(
         background,
         poster,
         episodeThumbnail,
@@ -235,6 +236,45 @@ internal fun ContinueWatchingItem.shouldBlurContinueWatchingArtwork(
     val isUnwatched = isNextUp || progressFraction < WatchProgressCompletionPercentThreshold / 100f
     return isUnwatched && artwork == thumbnail
 }
+
+/**
+ * Artwork URLs that already failed to load, so the next composition skips them.
+ *
+ * A Continue Watching card picks its artwork from a chain of candidates, and until a request
+ * is made an unusable URL is indistinguishable from a good one. Metahub serves an episode
+ * still for most live action shows but rarely for anime, so the thumbnail that heads the
+ * chain 404s and the card used to render empty while a known good backdrop and poster sat
+ * unused behind it. Remembering the failure demotes that URL for the rest of the session.
+ */
+private val brokenArtworkUrls = mutableStateMapOf<String, Unit>()
+
+internal fun markContinueWatchingArtworkBroken(url: String?) {
+    val normalized = url?.trim().orEmpty()
+    if (normalized.isNotEmpty()) {
+        brokenArtworkUrls[normalized] = Unit
+    }
+}
+
+internal fun isContinueWatchingArtworkBroken(url: String?): Boolean {
+    val normalized = url?.trim().orEmpty()
+    return normalized.isNotEmpty() && brokenArtworkUrls.containsKey(normalized)
+}
+
+internal fun clearContinueWatchingBrokenArtwork() {
+    brokenArtworkUrls.clear()
+}
+
+/**
+ * First candidate that is neither blank nor known broken.
+ *
+ * Falls back to the plain non-blank pick when every candidate has failed, so a card that has
+ * nothing left to try keeps requesting its last known artwork instead of going blank - which
+ * also lets a URL that only failed while offline come back on its own.
+ */
+private fun firstUsableArtwork(vararg values: String?): String? =
+    values.firstOrNull { value ->
+        !value.isNullOrBlank() && !isContinueWatchingArtworkBroken(value)
+    }?.trim() ?: firstNonBlank(*values)
 
 @Composable
 internal fun HomeContinueWatchingSection(
@@ -728,6 +768,7 @@ private fun ContinueWatchingCard(
                         )
                     },
                 contentScale = ContentScale.Crop,
+                onError = { markContinueWatchingArtworkBroken(imageUrl) },
             )
         }
         Column(
@@ -1025,6 +1066,7 @@ private fun ContinueWatchingPosterCard(
                         .fillMaxSize()
                         .then(if (shouldBlurArtwork) Modifier.blur(18.dp) else Modifier),
                     contentScale = if (item.isCloudLibraryItem()) ContentScale.Fit else ContentScale.Crop,
+                    onError = { markContinueWatchingArtworkBroken(imageUrl) },
                 )
             }
             if (item.progressFraction <= 0f && item.seasonNumber != null && item.episodeNumber != null) {
@@ -1131,6 +1173,7 @@ private fun ArtworkPanel(
                     .fillMaxSize()
                     .then(if (blurred) Modifier.blur(18.dp) else Modifier),
                 contentScale = contentScale,
+                onError = { markContinueWatchingArtworkBroken(imageUrl) },
             )
         }
     }

@@ -30,6 +30,21 @@ internal fun SimklSyncSnapshot.hiddenFromContinueWatchingContentIds(): Set<Strin
 internal fun SimklListStatus?.hidesContinueWatching(): Boolean =
     this == SimklListStatus.ON_HOLD || this == SimklListStatus.DROPPED
 
+/**
+ * True when any Simkl entry behind [contentId] is still on the Watching list.
+ *
+ * Simkl splits a franchise into one entry per season, cour or arc, while a meta addon serves the
+ * whole run under a single ID. Finishing one entry therefore leaves plenty of episodes ahead in the
+ * addon's list, and Next Up - which only asks "is there an episode after the furthest one watched?"
+ * - keeps offering them. Grouping by content ID means a franchise counts as watching while any of
+ * its entries is, which is what the viewer sees on Simkl.
+ */
+internal fun SimklSyncSnapshot.isTrackedAsWatching(contentId: String): Boolean =
+    entries.any { entry ->
+        entry.status == SimklListStatus.WATCHING &&
+            entry.matchesContent(contentId = contentId, trackingProviderItemId = null)
+    }
+
 private fun WatchedItem.supersedes(progress: WatchProgressEntry): Boolean {
     if (!type.equals(progress.contentType, ignoreCase = true)) return false
     if (season != progress.seasonNumber || episode != progress.episodeNumber) return false

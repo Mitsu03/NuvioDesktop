@@ -459,8 +459,138 @@ class SimklAnimeWatchedResolutionTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Scenario 8: TVDB season coordinates against a franchise parent IMDB.
+    // The addon serves every season under one IMDB ID, so the write path has to
+    // find the per-season Simkl entry from the snapshot's own TVDB mapping.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `snapshot resolves a tvdb seasoned episode onto the entry that owns it`() {
+        val snapshot = snapshotWithSeasonSpecificImdb()
+        val reference = TrackingMediaReference(
+            kind = TrackingMediaKind.ANIME,
+            title = "Franchise",
+            ids = TrackingExternalIds(imdb = "tt5607616", tvdb = "305089"),
+            episode = TrackingEpisode(season = 4, number = 14),
+            catalog = TrackingCatalogReference(
+                contentId = "tt5607616",
+                contentType = "series",
+                videoId = "tt5607616:4:14",
+            ),
+        )
+
+        val resolved = snapshot.resolveAnimeEpisodeForSimkl(reference)
+
+        assertEquals("tt36501927", resolved.ids.imdb)
+        assertEquals(63830L, resolved.ids.mal)
+        assertNull(resolved.episode?.season)
+        assertEquals(14, resolved.episode?.number)
+    }
+
+    @Test
+    fun `snapshot picks the cour that covers the requested tvdb episode`() {
+        val snapshot = snapshotWithSplitSeason()
+        val reference = TrackingMediaReference(
+            kind = TrackingMediaKind.ANIME,
+            title = "Split Season",
+            ids = TrackingExternalIds(imdb = "tt2250192"),
+            episode = TrackingEpisode(season = 1, number = 20),
+            catalog = TrackingCatalogReference(
+                contentId = "tt2250192",
+                contentType = "series",
+                videoId = "tt2250192:1:20",
+            ),
+        )
+
+        val resolved = snapshot.resolveAnimeEpisodeForSimkl(reference)
+
+        assertEquals(11759L, resolved.ids.mal)
+        assertNull(resolved.episode?.season)
+        assertEquals(6, resolved.episode?.number)
+    }
+
+    @Test
+    fun `snapshot falls back to the parent identity when no entry maps the season`() {
+        val snapshot = snapshotWithSeasonSpecificImdb()
+        val reference = TrackingMediaReference(
+            kind = TrackingMediaKind.ANIME,
+            title = "Franchise",
+            ids = TrackingExternalIds(imdb = "tt5607616", tvdb = "305089", mal = 31240),
+            episode = TrackingEpisode(season = 9, number = 1),
+            catalog = TrackingCatalogReference(
+                contentId = "tt5607616",
+                contentType = "series",
+                videoId = "tt5607616:9:1",
+            ),
+        )
+
+        val resolved = snapshot.resolveAnimeEpisodeForSimkl(reference)
+
+        assertEquals("tt5607616", resolved.ids.imdb)
+        assertNull(resolved.ids.mal)
+        assertEquals(9, resolved.episode?.season)
+        assertEquals(1, resolved.episode?.number)
+    }
+
+    @Test
+    fun `snapshot keeps the video id path ahead of the tvdb mapping`() {
+        val snapshot = snapshotWithSeasonSpecificImdb()
+        val reference = TrackingMediaReference(
+            kind = TrackingMediaKind.ANIME,
+            title = "Franchise",
+            ids = TrackingExternalIds(imdb = "tt5607616", tvdb = "305089"),
+            episode = TrackingEpisode(season = 4, number = 14),
+            catalog = TrackingCatalogReference(
+                contentId = "mal:63830",
+                contentType = "series",
+                videoId = "mal:63830:7",
+            ),
+        )
+
+        val resolved = snapshot.resolveAnimeEpisodeForSimkl(reference)
+
+        assertEquals(63830L, resolved.ids.mal)
+        assertNull(resolved.ids.imdb)
+        assertNull(resolved.episode?.season)
+        assertEquals(7, resolved.episode?.number)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * A franchise whose seasons share one TVDB ID but not one IMDB ID: the finished season carries
+     * the parent IMDB the addon serves, while the airing season carries a season-specific one.
+     * Only 13 of its 19 episodes are watched, so the episode being marked is absent from the entry.
+     */
+    private fun snapshotWithSeasonSpecificImdb(): SimklSyncSnapshot {
+        val finishedSeason = animeEntry(
+            simklId = 509292,
+            imdb = "tt5607616",
+            mal = 31240,
+            tvdb = "305089",
+            totalEpisodesCount = 25,
+            seasons = listOf(
+                SimklSeason(1, (1..25).map { ep ->
+                    SimklEpisode(ep, "2023-01-01T00:00:00Z", SimklEpisodeMapping(1, ep))
+                }),
+            ),
+        )
+        val airingSeason = animeEntry(
+            simklId = 2743422,
+            imdb = "tt36501927",
+            mal = 63830,
+            tvdb = "305089",
+            totalEpisodesCount = 19,
+            seasons = listOf(
+                SimklSeason(1, (1..13).map { ep ->
+                    SimklEpisode(ep, "2026-08-24T14:44:48Z", SimklEpisodeMapping(4, ep))
+                }),
+            ),
+        )
+        return SimklSyncSnapshot(entries = listOf(finishedSeason, airingSeason))
+    }
 
     /**
      * Two MAL entries sharing the same IMDB, representing two seasons:
@@ -536,11 +666,14 @@ class SimklAnimeWatchedResolutionTest {
         imdb: String? = null,
         mal: Long? = null,
         kitsu: Long? = null,
+        tvdb: String? = null,
+        totalEpisodesCount: Int = 0,
         seasons: List<SimklSeason> = emptyList(),
     ): SimklLibraryEntry = SimklLibraryEntry(
         mediaType = SimklMediaType.ANIME,
         status = SimklListStatus.WATCHING,
         lastWatchedAt = "2023-12-01T20:00:00Z",
+        totalEpisodesCount = totalEpisodesCount,
         seasons = seasons,
         show = SimklMedia(
             title = "Anime $simklId",
@@ -551,6 +684,7 @@ class SimklAnimeWatchedResolutionTest {
                 imdb?.let { put("imdb", it) }
                 mal?.let { put("mal", it) }
                 kitsu?.let { put("kitsu", it) }
+                tvdb?.let { put("tvdb", it) }
             },
         ),
     )

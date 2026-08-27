@@ -174,7 +174,7 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
         val snapshot = SimklSyncRepository.state.value.snapshot
         val resolved = items.map { item ->
             val enriched = snapshot.enrichMediaReference(item.media)
-            item.copy(media = enriched.resolveAnimeEpisodeForSimkl())
+            item.copy(media = snapshot.resolveAnimeEpisodeForSimkl(enriched))
         }
         return service.addToHistory(resolved)
     }
@@ -194,11 +194,12 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
     ) {
         if (!isActiveProfile(profileId)) return
         SimklSyncRepository.ensureLoaded()
-        val enriched = SimklSyncRepository.state.value.snapshot.enrichMediaReference(event.media)
+        val snapshot = SimklSyncRepository.state.value.snapshot
+        val enriched = snapshot.enrichMediaReference(event.media)
         val result = service.scrobble(
             action = action,
             event = event.copy(
-                media = enriched.resolveAnimeEpisodeForSimkl(),
+                media = snapshot.resolveAnimeEpisodeForSimkl(enriched),
             ),
         )
         if (action != TrackingScrobbleAction.START) {

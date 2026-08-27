@@ -108,7 +108,7 @@ object SimklWatchedSyncAdapter : TrackingWatchedProvider {
                 videoId = item.videoId,
             ).let { ref ->
                 val enriched = snapshot.enrichMediaReference(ref)
-                enriched.resolveAnimeEpisodeForSimkl()
+                snapshot.resolveAnimeEpisodeForSimkl(enriched)
             }
         }
         val result = SimklMutationRepository.removeFromHistory(profileId = profileId, items = media)
@@ -221,6 +221,9 @@ object SimklTrackingProgressProvider : TrackingProgressProvider {
 
     override fun isHiddenFromProgress(contentId: String): Boolean =
         SimklSyncRepository.state.value.snapshot.isHiddenFromContinueWatching(contentId)
+
+    override fun isTrackedAsWatching(contentId: String): Boolean =
+        SimklSyncRepository.state.value.snapshot.isTrackedAsWatching(contentId)
 
     override fun normalizeParentContentId(parentContentId: String, videoId: String?): String {
         val snapshot = SimklSyncRepository.state.value.snapshot
