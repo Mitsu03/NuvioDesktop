@@ -25,9 +25,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -135,28 +138,28 @@ private fun localizedContinueWatchingMetaLine(item: ContinueWatchingItem): Strin
 private fun ContinueWatchingItem.isCloudLibraryItem(): Boolean =
     parentMetaType.equals(CloudLibraryContentType, ignoreCase = true)
 
-private fun ContinueWatchingItem.continueWatchingArtworkUrl(
+private fun ContinueWatchingItem.continueWatchingArtworkCandidates(
     useEpisodeThumbnails: Boolean,
-): String? = when {
-    isNextUp && useEpisodeThumbnails -> firstNonBlank(
+): List<String> = when {
+    isNextUp && useEpisodeThumbnails -> nonBlankCandidates(
         episodeThumbnail,
         poster,
         background,
         imageUrl,
     )
-    isNextUp -> firstNonBlank(
+    isNextUp -> nonBlankCandidates(
         poster,
         background,
         episodeThumbnail,
         imageUrl,
     )
-    useEpisodeThumbnails -> firstNonBlank(
+    useEpisodeThumbnails -> nonBlankCandidates(
         episodeThumbnail,
         poster,
         background,
         imageUrl,
     )
-    else -> firstNonBlank(
+    else -> nonBlankCandidates(
         poster,
         background,
         episodeThumbnail,
@@ -164,11 +167,11 @@ private fun ContinueWatchingItem.continueWatchingArtworkUrl(
     )
 }
 
-private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
+private fun ContinueWatchingItem.continueWatchingPosterArtworkCandidates(
     useEpisodeThumbnails: Boolean,
-): String? {
+): List<String> {
     if (seasonNumber == null || episodeNumber == null) {
-        return continueWatchingArtworkUrl(useEpisodeThumbnails)
+        return continueWatchingArtworkCandidates(useEpisodeThumbnails)
     }
 
     val normalizedEpisodeThumbnail = episodeThumbnail?.trim()?.takeIf { it.isNotBlank() }
@@ -176,7 +179,7 @@ private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
         ?.trim()
         ?.takeIf { it.isNotBlank() && it != normalizedEpisodeThumbnail }
 
-    return firstNonBlank(
+    return nonBlankCandidates(
         poster,
         background,
         nonEpisodeImageUrl,
@@ -185,35 +188,35 @@ private fun ContinueWatchingItem.continueWatchingPosterArtworkUrl(
     )
 }
 
-private fun ContinueWatchingItem.continueWatchingCardArtworkUrl(
+private fun ContinueWatchingItem.continueWatchingCardArtworkCandidates(
     useEpisodeThumbnails: Boolean,
     preferBackdropForNextUp: Boolean,
-): String? = when {
-    isNextUp && preferBackdropForNextUp -> firstNonBlank(
+): List<String> = when {
+    isNextUp && preferBackdropForNextUp -> nonBlankCandidates(
         background,
         poster,
         episodeThumbnail,
         imageUrl,
     )
-    isNextUp && useEpisodeThumbnails -> firstNonBlank(
+    isNextUp && useEpisodeThumbnails -> nonBlankCandidates(
         episodeThumbnail,
         background,
         poster,
         imageUrl,
     )
-    isNextUp -> firstNonBlank(
+    isNextUp -> nonBlankCandidates(
         background,
         poster,
         episodeThumbnail,
         imageUrl,
     )
-    useEpisodeThumbnails -> firstNonBlank(
+    useEpisodeThumbnails -> nonBlankCandidates(
         episodeThumbnail,
         background,
         poster,
         imageUrl,
     )
-    else -> firstNonBlank(
+    else -> nonBlankCandidates(
         background,
         poster,
         episodeThumbnail,
@@ -221,8 +224,33 @@ private fun ContinueWatchingItem.continueWatchingCardArtworkUrl(
     )
 }
 
-private fun firstNonBlank(vararg values: String?): String? =
-    values.firstOrNull { value -> !value.isNullOrBlank() }?.trim()
+/**
+ * Ordered artwork candidates, best first. Every entry is kept rather than only the first, because a non-blank
+ * URL is not a loadable one: addons hand out template-built thumbnail URLs that were never checked to exist
+ * (`episodes.metahub.space/<imdb>/<s>/<e>` is generated for every episode, and 404s for many), and a dead
+ * string satisfies a blankness test while a poster sitting right behind it would have rendered fine.
+ */
+private fun nonBlankCandidates(vararg values: String?): List<String> =
+    values.mapNotNull { value -> value?.trim()?.takeIf { it.isNotBlank() } }.distinct()
+
+/**
+ * Walks [candidates] as each one fails to load, so artwork falls back on load failure rather than on emptiness.
+ */
+@Stable
+private class ContinueWatchingArtworkState(private val candidates: List<String>) {
+    private var index by mutableStateOf(0)
+
+    val current: String? get() = candidates.getOrNull(index)
+
+    fun onLoadFailed(url: String) {
+        // Guard against a late error callback from a candidate we have already moved past.
+        if (candidates.getOrNull(index) == url) index += 1
+    }
+}
+
+@Composable
+private fun rememberContinueWatchingArtwork(candidates: List<String>): ContinueWatchingArtworkState =
+    remember(candidates) { ContinueWatchingArtworkState(candidates) }
 
 internal fun ContinueWatchingItem.shouldBlurContinueWatchingArtwork(
     blurUnwatchedEpisodes: Boolean,
@@ -660,10 +688,13 @@ private fun ContinueWatchingCard(
         null
     }
     val preferBackdropForNextUp = item.isNextUp && airDateText != null && !item.isReleaseAlert
-    val imageUrl = item.continueWatchingCardArtworkUrl(
-        useEpisodeThumbnails = useEpisodeThumbnails,
-        preferBackdropForNextUp = preferBackdropForNextUp,
+    val artwork = rememberContinueWatchingArtwork(
+        item.continueWatchingCardArtworkCandidates(
+            useEpisodeThumbnails = useEpisodeThumbnails,
+            preferBackdropForNextUp = preferBackdropForNextUp,
+        ),
     )
+    val imageUrl = artwork.current
     val shouldBlurArtwork = item.shouldBlurContinueWatchingArtwork(
         blurUnwatchedEpisodes = blurNextUp,
         useEpisodeThumbnails = useEpisodeThumbnails,
@@ -704,6 +735,7 @@ private fun ContinueWatchingCard(
             AsyncImage(
                 model = cloudLibraryDisplayArtworkUrl(imageUrl),
                 contentDescription = item.title,
+                onError = { artwork.onLoadFailed(imageUrl) },
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (shouldBlurArtwork) Modifier.blur(18.dp) else Modifier)
@@ -874,14 +906,14 @@ private fun ContinueWatchingWideCard(
                 shape = RoundedCornerShape(layout.cardRadius),
             ),
     ) {
-        val artworkUrl = item.continueWatchingArtworkUrl(useEpisodeThumbnails)
+        val artworkCandidates = item.continueWatchingArtworkCandidates(useEpisodeThumbnails)
         val shouldBlurArtwork = item.shouldBlurContinueWatchingArtwork(
             blurUnwatchedEpisodes = blurNextUp,
             useEpisodeThumbnails = useEpisodeThumbnails,
-            artworkUrl = artworkUrl,
+            artworkUrl = artworkCandidates.firstOrNull(),
         )
         ArtworkPanel(
-            imageUrl = artworkUrl,
+            imageUrls = artworkCandidates,
             width = layout.widePosterStripWidth,
             blurred = shouldBlurArtwork,
             contentScale = if (item.isCloudLibraryItem()) ContentScale.Fit else ContentScale.Crop,
@@ -987,7 +1019,10 @@ private fun ContinueWatchingPosterCard(
     onClick: (() -> Unit)?,
     onLongClick: (() -> Unit)?,
 ) {
-    val imageUrl = item.continueWatchingPosterArtworkUrl(useEpisodeThumbnails)
+    val artwork = rememberContinueWatchingArtwork(
+        item.continueWatchingPosterArtworkCandidates(useEpisodeThumbnails),
+    )
+    val imageUrl = artwork.current
     Column(
         modifier = Modifier
             .desktopPosterHoverScale()
@@ -1021,6 +1056,7 @@ private fun ContinueWatchingPosterCard(
                 AsyncImage(
                     model = cloudLibraryDisplayArtworkUrl(imageUrl),
                     contentDescription = item.title,
+                    onError = { artwork.onLoadFailed(imageUrl) },
                     modifier = Modifier
                         .fillMaxSize()
                         .then(if (shouldBlurArtwork) Modifier.blur(18.dp) else Modifier),
@@ -1112,12 +1148,14 @@ private fun ContinueWatchingPosterCard(
 
 @Composable
 private fun ArtworkPanel(
-    imageUrl: String?,
+    imageUrls: List<String>,
     width: Dp,
     blurred: Boolean = false,
     contentScale: ContentScale = ContentScale.Crop,
     modifier: Modifier = Modifier,
 ) {
+    val artwork = rememberContinueWatchingArtwork(imageUrls)
+    val imageUrl = artwork.current
     Box(
         modifier = modifier
             .width(width)
@@ -1127,6 +1165,7 @@ private fun ArtworkPanel(
             AsyncImage(
                 model = cloudLibraryDisplayArtworkUrl(imageUrl),
                 contentDescription = null,
+                onError = { artwork.onLoadFailed(imageUrl) },
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (blurred) Modifier.blur(18.dp) else Modifier),

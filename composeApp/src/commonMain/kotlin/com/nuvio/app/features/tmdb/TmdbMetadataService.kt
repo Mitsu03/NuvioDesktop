@@ -29,6 +29,8 @@ object TmdbMetadataService {
 
     private val enrichmentCache = mutableMapOf<String, TmdbEnrichment>()
     private val episodeCache = mutableMapOf<String, Map<Pair<Int, Int>, TmdbEpisodeEnrichment>>()
+    private val absoluteEpisodeCache = mutableMapOf<String, Map<Int, TmdbEpisodeEnrichment>>()
+    private val seasonRangeCache = mutableMapOf<Int, List<TmdbSeasonRange>>()
     private val moreLikeThisCache = mutableMapOf<String, List<MetaPreview>>()
     private val collectionCache = mutableMapOf<String, Pair<String?, List<MetaPreview>>>()
     private val trailerCache = mutableMapOf<String, List<MetaTrailer>>()
@@ -683,10 +685,21 @@ object TmdbMetadataService {
             enrichmentDeferred.await() to episodeDeferred?.await()
         }
 
+        val resolvedEpisodeMap = if (needsEpisodes) {
+            fillEpisodeGapsByAbsoluteNumber(
+                tmdbId = tmdbId,
+                meta = meta,
+                episodeMap = episodeMap.orEmpty(),
+                language = settings.language,
+            )
+        } else {
+            episodeMap.orEmpty()
+        }
+
         return applyEnrichment(
             meta = meta,
             enrichment = enrichment,
-            episodeMap = episodeMap.orEmpty(),
+            episodeMap = resolvedEpisodeMap,
             settings = settings,
         )
     }
@@ -1155,6 +1168,108 @@ object TmdbMetadataService {
         merged
     }
 
+    /**
+     * Long-running anime are cut into seasons differently by TMDB than by TVDB-derived addons, and TMDB keeps
+     * numbering episodes absolutely inside those seasons (One Piece season 5 runs 131..143, not 1..13). A
+     * `(season, episode)` lookup therefore misses every episode of such a show, leaving the addon's own
+     * template-built thumbnail URL in place — which for these titles is a 404.
+     *
+     * When the seasons we already fetched prove TMDB is numbering absolutely, re-resolve the gaps by the
+     * episode's absolute position in the addon's own ordering, which is the number TMDB indexes by.
+     */
+    private suspend fun fillEpisodeGapsByAbsoluteNumber(
+        tmdbId: String,
+        meta: MetaDetails,
+        episodeMap: Map<Pair<Int, Int>, TmdbEpisodeEnrichment>,
+        language: String,
+    ): Map<Pair<Int, Int>, TmdbEpisodeEnrichment> {
+        if (!usesAbsoluteEpisodeNumbering(episodeMap.keys)) return episodeMap
+
+        val gaps = absoluteEpisodeNumbersByKey(meta.videos)
+            .filterKeys { key -> key !in episodeMap }
+        if (gaps.isEmpty()) return episodeMap
+
+        val byAbsoluteNumber = fetchAbsoluteEpisodeEnrichment(
+            tmdbId = tmdbId,
+            absoluteNumbers = gaps.values.toSet(),
+            language = language,
+        )
+        if (byAbsoluteNumber.isEmpty()) return episodeMap
+
+        val recovered = gaps.mapNotNull { (key, absoluteNumber) ->
+            // The season poster belongs to TMDB's season partition, which is not the addon's — drop it.
+            byAbsoluteNumber[absoluteNumber]?.let { key to it.copy(seasonPoster = null) }
+        }
+        log.d { "Recovered ${recovered.size}/${gaps.size} absolute-numbered episodes for $tmdbId" }
+        return episodeMap + recovered
+    }
+
+    private suspend fun fetchAbsoluteEpisodeEnrichment(
+        tmdbId: String,
+        absoluteNumbers: Set<Int>,
+        language: String,
+    ): Map<Int, TmdbEpisodeEnrichment> = withContext(Dispatchers.Default) {
+        val normalizedLanguage = normalizeTmdbLanguage(language)
+        val numericId = tmdbId.toIntOrNull() ?: return@withContext emptyMap()
+        if (absoluteNumbers.isEmpty()) return@withContext emptyMap()
+
+        val ranges = fetchSeasonRanges(numericId)
+        if (ranges.isEmpty()) return@withContext emptyMap()
+
+        val seasons = absoluteNumbers
+            .mapNotNull { number -> ranges.firstOrNull { number in it.firstEpisode..it.lastEpisode }?.seasonNumber }
+            .distinct()
+            .sorted()
+        if (seasons.isEmpty()) return@withContext emptyMap()
+
+        val cacheKey = "$numericId:abs:${seasons.joinToString(",")}:$normalizedLanguage"
+        absoluteEpisodeCache[cacheKey]?.let { return@withContext it }
+
+        val pairs = coroutineScope {
+            seasons.map { season ->
+                async {
+                    val details = fetch<TmdbSeasonDetailsResponse>(
+                        endpoint = "tv/$numericId/season/$season",
+                        query = mapOf("language" to normalizedLanguage),
+                    ) ?: return@async emptyMap()
+
+                    details.episodes
+                        .mapNotNull { episode ->
+                            val episodeNumber = episode.episodeNumber ?: return@mapNotNull null
+                            episodeNumber to TmdbEpisodeEnrichment(
+                                title = episode.name?.trim()?.takeIf(String::isNotBlank),
+                                overview = episode.overview?.trim()?.takeIf(String::isNotBlank),
+                                thumbnail = buildImageUrl(episode.stillPath, "w500"),
+                                seasonPoster = buildImageUrl(details.posterPath, "w500"),
+                                airDate = episode.airDate?.trim()?.takeIf(String::isNotBlank),
+                                runtimeMinutes = episode.runtime,
+                            )
+                        }
+                        .toMap()
+                }
+            }.awaitAll()
+        }
+
+        val merged = pairs.fold(emptyMap<Int, TmdbEpisodeEnrichment>()) { acc, value -> acc + value }
+        if (merged.isNotEmpty()) {
+            absoluteEpisodeCache[cacheKey] = merged
+        }
+        merged
+    }
+
+    private suspend fun fetchSeasonRanges(numericId: Int): List<TmdbSeasonRange> {
+        seasonRangeCache[numericId]?.let { return it }
+        val details = fetch<TmdbDetailsResponse>(
+            endpoint = "tv/$numericId",
+            query = mapOf("language" to "en-US"),
+        ) ?: return emptyList()
+        val ranges = tmdbSeasonRanges(details.seasons)
+        if (ranges.isNotEmpty()) {
+            seasonRangeCache[numericId] = ranges
+        }
+        return ranges
+    }
+
     private suspend inline fun <reified T> fetch(
         endpoint: String,
         query: Map<String, String> = emptyMap(),
@@ -1441,6 +1556,57 @@ internal data class TmdbEpisodeEnrichment(
     val airDate: String?,
     val runtimeMinutes: Int?,
 )
+
+internal data class TmdbSeasonRange(
+    val seasonNumber: Int,
+    val firstEpisode: Int,
+    val lastEpisode: Int,
+)
+
+/**
+ * TMDB does not expose whether a show is numbered absolutely, but it shows: a season whose lowest episode
+ * number is above 1 is continuing a running count rather than restarting it.
+ */
+internal fun usesAbsoluteEpisodeNumbering(episodeKeys: Set<Pair<Int, Int>>): Boolean =
+    episodeKeys
+        .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+        .any { (_, episodes) -> (episodes.minOrNull() ?: 1) > 1 }
+
+/**
+ * Maps each `(season, episode)` of the addon's own ordering to the episode's absolute position in the series,
+ * ignoring specials. Season 0 is excluded because it does not participate in absolute numbering.
+ */
+internal fun absoluteEpisodeNumbersByKey(videos: List<MetaVideo>): Map<Pair<Int, Int>, Int> =
+    videos
+        .mapNotNull { video ->
+            val season = video.season?.takeIf { it > 0 } ?: return@mapNotNull null
+            val episode = video.episode ?: return@mapNotNull null
+            season to episode
+        }
+        .distinct()
+        .sortedWith(compareBy({ it.first }, { it.second }))
+        .withIndex()
+        .associate { (index, key) -> key to index + 1 }
+
+/**
+ * Turns TMDB's per-season episode counts into the absolute episode range each season covers, which is the
+ * numbering TMDB itself uses for absolutely-numbered shows.
+ */
+internal fun tmdbSeasonRanges(seasons: List<TmdbSeasonSummary>): List<TmdbSeasonRange> {
+    var nextFirst = 1
+    return seasons
+        .mapNotNull { season ->
+            val number = season.seasonNumber?.takeIf { it > 0 } ?: return@mapNotNull null
+            val count = season.episodeCount?.takeIf { it > 0 } ?: return@mapNotNull null
+            number to count
+        }
+        .sortedBy { it.first }
+        .map { (number, count) ->
+            val first = nextFirst
+            nextFirst += count
+            TmdbSeasonRange(seasonNumber = number, firstEpisode = first, lastEpisode = nextFirst - 1)
+        }
+}
 
 private fun normalizeMetaType(type: String): String =
     when (type.trim().lowercase()) {
@@ -1847,6 +2013,13 @@ private data class TmdbDetailsResponse(
     val networks: List<TmdbCompany> = emptyList(),
     @SerialName("belongs_to_collection") val belongsToCollection: TmdbCollectionRef? = null,
     @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
+    val seasons: List<TmdbSeasonSummary> = emptyList(),
+)
+
+@Serializable
+internal data class TmdbSeasonSummary(
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    @SerialName("episode_count") val episodeCount: Int? = null,
 )
 
 @Serializable

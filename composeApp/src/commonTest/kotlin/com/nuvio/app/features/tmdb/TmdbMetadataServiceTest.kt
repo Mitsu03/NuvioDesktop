@@ -437,4 +437,81 @@ class TmdbMetadataServiceTest {
         assertEquals("Chibi Maruko-chan", titles[57775])
         assertEquals("One Piece", titles[37854])
     }
+
+    @Test
+    fun `usesAbsoluteEpisodeNumbering detects seasons that continue a running count`() {
+        // KONOSUBA season 3 on TMDB: 1..11, restarting per season.
+        assertFalse(usesAbsoluteEpisodeNumbering(setOf(3 to 1, 3 to 2, 3 to 3)))
+        // One Piece season 5 on TMDB: 131..143, continuing the series count.
+        assertTrue(usesAbsoluteEpisodeNumbering(setOf(5 to 131, 5 to 132, 5 to 143)))
+        assertFalse(usesAbsoluteEpisodeNumbering(emptySet()))
+    }
+
+    @Test
+    fun `absoluteEpisodeNumbersByKey numbers episodes across seasons and skips specials`() {
+        val videos = listOf(
+            episodeVideo(season = 2, episode = 1),
+            episodeVideo(season = 1, episode = 2),
+            episodeVideo(season = 1, episode = 1),
+            episodeVideo(season = 0, episode = 1),
+            MetaVideo(id = "movie", title = "No season"),
+        )
+
+        val absolute = absoluteEpisodeNumbersByKey(videos)
+
+        assertEquals(mapOf((1 to 1) to 1, (1 to 2) to 2, (2 to 1) to 3), absolute)
+    }
+
+    @Test
+    fun `tmdbSeasonRanges turns episode counts into absolute ranges and ignores specials`() {
+        // TMDB One Piece: S1..S5 counts 61, 16, 14, 39, 13 -> season 5 starts at 131.
+        val ranges = tmdbSeasonRanges(
+            listOf(
+                TmdbSeasonSummary(seasonNumber = 0, episodeCount = 39),
+                TmdbSeasonSummary(seasonNumber = 5, episodeCount = 13),
+                TmdbSeasonSummary(seasonNumber = 1, episodeCount = 61),
+                TmdbSeasonSummary(seasonNumber = 2, episodeCount = 16),
+                TmdbSeasonSummary(seasonNumber = 3, episodeCount = 14),
+                TmdbSeasonSummary(seasonNumber = 4, episodeCount = 39),
+            ),
+        )
+
+        assertEquals(5, ranges.size)
+        assertEquals(TmdbSeasonRange(seasonNumber = 1, firstEpisode = 1, lastEpisode = 61), ranges.first())
+        assertEquals(TmdbSeasonRange(seasonNumber = 2, firstEpisode = 62, lastEpisode = 77), ranges[1])
+        assertEquals(TmdbSeasonRange(seasonNumber = 5, firstEpisode = 131, lastEpisode = 143), ranges.last())
+    }
+
+    @Test
+    fun `absolute numbering resolves an addon episode to the season TMDB actually files it under`() {
+        // Cinemeta calls "Try Hard, Coby!" One Piece S5E8; TMDB files it as season 2, episode 68.
+        // The two sources cut seasons differently, which is the whole reason the plain (season, episode)
+        // join misses: Cinemeta's first four seasons hold 60 episodes, TMDB's hold 130.
+        val addonSeasonSizes = mapOf(1 to 8, 2 to 22, 3 to 17, 4 to 13, 5 to 9)
+        val videos = addonSeasonSizes.flatMap { (season, episodes) ->
+            (1..episodes).map { episode -> episodeVideo(season = season, episode = episode) }
+        }
+        val ranges = tmdbSeasonRanges(
+            listOf(
+                TmdbSeasonSummary(seasonNumber = 1, episodeCount = 61),
+                TmdbSeasonSummary(seasonNumber = 2, episodeCount = 16),
+                TmdbSeasonSummary(seasonNumber = 3, episodeCount = 14),
+                TmdbSeasonSummary(seasonNumber = 4, episodeCount = 39),
+                TmdbSeasonSummary(seasonNumber = 5, episodeCount = 13),
+            ),
+        )
+
+        val absolute = absoluteEpisodeNumbersByKey(videos).getValue(5 to 8)
+        val owningSeason = ranges.first { absolute in it.firstEpisode..it.lastEpisode }
+
+        assertEquals(68, absolute)
+        assertEquals(2, owningSeason.seasonNumber)
+    }
+
+    private fun episodeVideo(season: Int, episode: Int) = MetaVideo(
+        id = "s${season}e$episode",
+        title = "S${season}E$episode",
+        season = season,
+        episode = episode,
+    )
 }
