@@ -97,8 +97,14 @@ fun FolderDetailScreen(
     // inicial -- sai ampliado e cortado a meio aqui. O heroBackdropUrl existe
     // no modelo e ja vem sincronizado justamente para isto; so faltava alguem
     // le-lo. Quem nao o tiver continua a cair para a capa, como antes.
-    val coverImageUrl = folder?.heroBackdropUrl?.takeIf { it.isNotBlank() }
-        ?: folder?.coverImageUrl?.takeIf { it.isNotBlank() }
+    // O let mantem isto como uma so cadeia a partir de folder?, que e o que
+    // permite ao compilador continuar a deduzir folder != null onde coverImageUrl
+    // != null. Um elvis entre dois folder?. quebra essa deducao e o folder.title
+    // la em baixo deixa de compilar.
+    val coverImageUrl = folder?.let { pasta ->
+        pasta.heroBackdropUrl?.takeIf { it.isNotBlank() }
+            ?: pasta.coverImageUrl?.takeIf { it.isNotBlank() }
+    }
     val density = LocalDensity.current
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val maxHeroHeightPx = with(density) { FolderCoverHeight.toPx() }
