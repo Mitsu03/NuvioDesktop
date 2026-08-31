@@ -92,7 +92,13 @@ fun FolderDetailScreen(
     }.collectAsState()
     val folder = uiState.folder
     val useNativeNavigation = LocalUseNativeNavigation.current
-    val coverImageUrl = folder?.coverImageUrl?.takeIf { it.isNotBlank() }
+    // A faixa do topo tem 176.dp a toda a largura e recorta com Crop, portanto
+    // um coverImageUrl quadrado -- que e o que faz sentido no mosaico da linha
+    // inicial -- sai ampliado e cortado a meio aqui. O heroBackdropUrl existe
+    // no modelo e ja vem sincronizado justamente para isto; so faltava alguem
+    // le-lo. Quem nao o tiver continua a cair para a capa, como antes.
+    val coverImageUrl = folder?.heroBackdropUrl?.takeIf { it.isNotBlank() }
+        ?: folder?.coverImageUrl?.takeIf { it.isNotBlank() }
     val density = LocalDensity.current
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val maxHeroHeightPx = with(density) { FolderCoverHeight.toPx() }
