@@ -105,7 +105,15 @@ fun FolderDetailScreen(
     }.collectAsState()
     val folder = uiState.folder
     val useNativeNavigation = LocalUseNativeNavigation.current
-    val coverImageUrl = folder?.coverImageUrl?.takeIf { it.isNotBlank() }
+    // A faixa do topo recorta com Crop, por isso um coverImageUrl quadrado sai
+    // ampliado e cortado a meio. O heroBackdropUrl existe no modelo e ja vem
+    // sincronizado justamente para isto. Quem nao o tiver cai para a capa.
+    // O let mantem isto como uma so cadeia a partir de folder?, o que permite ao
+    // compilador continuar a deduzir folder != null onde coverImageUrl != null.
+    val coverImageUrl = folder?.let { pasta ->
+        pasta.heroBackdropUrl?.takeIf { it.isNotBlank() }
+            ?: pasta.coverImageUrl?.takeIf { it.isNotBlank() }
+    }
 
     if (!isDesktop) {
         MobileFolderDetailContent(
