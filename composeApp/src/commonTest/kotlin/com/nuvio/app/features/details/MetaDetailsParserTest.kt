@@ -16,6 +16,44 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse rejects aggregator error placeholder instead of storing it as meta`() {
+        // Verbatim shape an aggregator returns when a sub-addon lookup fails: a well-formed meta
+        // object whose name is the failing addon and whose description is the error text.
+        // Accepting it is what titled a series "[\u274C] Anime Kitsu" in stored watch progress.
+        assertFailsWith<IllegalStateException> {
+            MetaDetailsParser.parse(
+                """
+                {
+                  "meta": {
+                    "id": "tt0988824",
+                    "type": "series",
+                    "name": "[\u274C] Anime Kitsu",
+                    "description": "Request for meta for Anime Kitsu timed out after 30000ms"
+                  }
+                }
+                """.trimIndent(),
+            )
+        }
+    }
+
+    @Test
+    fun `parse keeps titles that merely contain brackets`() {
+        val result = MetaDetailsParser.parse(
+            """
+            {
+              "meta": {
+                "id": "tt0988824",
+                "type": "series",
+                "name": "[Dub] Naruto Shippuuden"
+              }
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("[Dub] Naruto Shippuuden", result.name)
+    }
+
+    @Test
     fun `parse accepts bare meta object response`() {
         val result = MetaDetailsParser.parse(
             """

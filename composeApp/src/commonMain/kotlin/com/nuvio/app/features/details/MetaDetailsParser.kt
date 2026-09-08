@@ -26,6 +26,11 @@ internal object MetaDetailsParser {
             ?: error("Expected top-level JSON object in response")
         val meta = root.extractMetaObject()
             ?: error("Response did not contain a valid meta object")
+        meta.string("name")?.let { name ->
+            if (isAddonErrorSentinel(name)) {
+                error("Addon returned an error placeholder instead of meta: $name")
+            }
+        }
         val links = meta.links()
         val videos = meta.videos()
 
@@ -116,6 +121,16 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.looksLikeMetaObject(): Boolean =
         string("id") != null && string("type") != null && string("name") != null
+
+    /**
+     * Aggregator addons answer a failed upstream lookup with a well-formed meta object whose
+     * `name` is the failing sub-addon tagged `[❌]` and whose `description` carries the error
+     * text. It parses cleanly, so without this guard it gets stored as real metadata -- that is
+     * how a series ends up titled "[❌] Anime Kitsu" with the timeout message as its synopsis.
+     * Rejecting it lets the caller fall through to the next addon.
+     */
+    private fun isAddonErrorSentinel(name: String): Boolean =
+        name.trimStart().startsWith("[\u274C]")
 
     private fun JsonObject.ageRating(): String? {
         val appExtras = this["app_extras"] as? JsonObject
