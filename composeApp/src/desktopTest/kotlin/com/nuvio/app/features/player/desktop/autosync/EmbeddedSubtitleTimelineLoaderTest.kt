@@ -109,7 +109,7 @@ private class RangeHttpServer(private val bytes: ByteArray) {
 }
 
 /** Hand-rolled minimal EBML/Matroska byte builder covering only what the loader reads. */
-private object MatroskaFixture {
+internal object MatroskaFixture {
     private const val ID_SEGMENT = 0x18538067L
     private const val ID_TRACKS = 0x1654AE6BL
     private const val ID_CUES = 0x1C53BB6BL
@@ -185,8 +185,13 @@ private object MatroskaFixture {
         return bytes
     }
 
-    /** Fixed-width big-endian unsigned integer, wide enough for every value this fixture needs. */
+    /**
+     * Fixed-width (4-byte) big-endian unsigned integer -- big enough for ~49 days of milliseconds,
+     * so real-length movie timelines never silently wrap around a narrower fixed width.
+     */
     private fun uint(value: Long): ByteArray = byteArrayOf(
+        ((value shr 24) and 0xFF).toByte(),
+        ((value shr 16) and 0xFF).toByte(),
         ((value shr 8) and 0xFF).toByte(),
         (value and 0xFF).toByte(),
     )
