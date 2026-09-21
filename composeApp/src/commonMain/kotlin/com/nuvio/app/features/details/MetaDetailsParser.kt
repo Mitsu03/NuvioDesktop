@@ -130,7 +130,7 @@ internal object MetaDetailsParser {
      * Rejecting it lets the caller fall through to the next addon.
      */
     private fun isAddonErrorSentinel(name: String): Boolean =
-        name.trimStart().startsWith("[\u274C]")
+        name.trimStart().startsWith("[❌]")
 
     private fun JsonObject.ageRating(): String? {
         val appExtras = this["app_extras"] as? JsonObject

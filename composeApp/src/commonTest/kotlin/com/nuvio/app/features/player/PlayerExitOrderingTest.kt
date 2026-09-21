@@ -89,6 +89,7 @@ class PlayerExitOrderingTest {
         override fun getAudioTracks() = emptyList<AudioTrack>()
         override fun getSubtitleTracks() = emptyList<SubtitleTrack>()
         override fun selectAudioTrack(index: Int) = Unit
+        override fun applyAudioLanguagePreferences(languages: List<String>) = Unit
         override fun selectSubtitleTrack(index: Int) = Unit
         override fun setSubtitleUri(url: String) = Unit
         override fun clearExternalSubtitle() = Unit

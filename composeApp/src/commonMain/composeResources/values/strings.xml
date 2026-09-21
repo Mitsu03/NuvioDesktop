@@ -2321,4 +2321,21 @@
         <item quantity="one">%d title</item>
         <item quantity="other">%d titles</item>
     </plurals>
+    <string name="compose_settings_page_watch_together">Watch Together</string>
+    <string name="settings_integrations_watch_together_description">Watch in sync with someone else</string>
+    <string name="settings_watch_together_section_title">WATCH TOGETHER</string>
+    <string name="settings_watch_together_section_network">NETWORK</string>
+    <string name="settings_watch_together_enable">Enable Watch Together</string>
+    <string name="settings_watch_together_enable_description">Lets you share what you are watching with someone else, in sync</string>
+    <string name="settings_watch_together_auto_accept">Let people in automatically</string>
+    <string name="settings_watch_together_auto_accept_description">Anyone with the invite joins without asking you first</string>
+    <string name="settings_watch_together_name_label">Your name</string>
+    <string name="settings_watch_together_port_label">Port</string>
+    <string name="settings_watch_together_port_description">Kept between sessions so the firewall rule you allowed keeps working</string>
+    <string name="settings_watch_together_address_label">Address to share</string>
+    <string name="settings_watch_together_address_description">Leave empty to use your local network address. Set a Tailscale or tunnel address to reach someone outside your network.</string>
+    <string name="settings_watch_together_reach_note">On the same network this works as is. From elsewhere, the other person cannot reach this computer without a tunnel — Tailscale is the simplest — or a forwarded port on your router.</string>
+    <string name="settings_watch_together_join_label">Invite link</string>
+    <string name="settings_watch_together_join_description">Paste the link the host sent you. A room lives on the host’s computer, so the address has to travel with the invite.</string>
+    <string name="settings_watch_together_join_action">Join</string>
 </resources>

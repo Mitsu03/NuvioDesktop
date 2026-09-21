@@ -14,6 +14,7 @@ actual object AppFeaturePolicy {
     actual val accountDeletionEnabled: Boolean = false
     actual val personalMediaAddonCopyEnabled: Boolean = false
     actual val p2pEnabled: Boolean = true
+    actual val watchTogetherEnabled: Boolean = true
     actual val externalPlayerSupported: Boolean = false
     actual val trailerPlaybackMode: TrailerPlaybackMode =
         if (isWindowsDesktop) TrailerPlaybackMode.EXTERNAL else TrailerPlaybackMode.IN_APP

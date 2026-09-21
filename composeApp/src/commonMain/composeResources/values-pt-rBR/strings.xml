@@ -1357,4 +1357,21 @@
     <string name="unit_bytes_kb">KB</string>
     <string name="unit_bytes_mb">MB</string>
     <string name="unit_bytes_gb">GB</string>
+    <string name="compose_settings_page_watch_together">Ver em Conjunto</string>
+    <string name="settings_integrations_watch_together_description">Assistir em sincronia com outra pessoa</string>
+    <string name="settings_watch_together_section_title">VER EM CONJUNTO</string>
+    <string name="settings_watch_together_section_network">REDE</string>
+    <string name="settings_watch_together_enable">Ativar Ver em Conjunto</string>
+    <string name="settings_watch_together_enable_description">Permite compartilhar o que você está assistindo com outra pessoa, em sincronia</string>
+    <string name="settings_watch_together_auto_accept">Deixar entrar automaticamente</string>
+    <string name="settings_watch_together_auto_accept_description">Quem tiver o convite entra sem perguntar primeiro</string>
+    <string name="settings_watch_together_name_label">Seu nome</string>
+    <string name="settings_watch_together_port_label">Porta</string>
+    <string name="settings_watch_together_port_description">Salva entre sessões para a regra de firewall que você autorizou continuar valendo</string>
+    <string name="settings_watch_together_address_label">Endereço para compartilhar</string>
+    <string name="settings_watch_together_address_description">Deixe vazio para usar o endereço da sua rede local. Defina um endereço Tailscale ou de túnel para alcançar alguém fora da sua rede.</string>
+    <string name="settings_watch_together_reach_note">Na mesma rede isto funciona como está. De fora, a outra pessoa não consegue chegar a este computador sem um túnel — o Tailscale é o mais simples — ou uma porta encaminhada no seu roteador.</string>
+    <string name="settings_watch_together_join_label">Link do convite</string>
+    <string name="settings_watch_together_join_description">Cole o link que o anfitrião enviou. A sala vive no computador dele, então o endereço precisa viajar junto com o convite.</string>
+    <string name="settings_watch_together_join_action">Entrar</string>
 </resources>

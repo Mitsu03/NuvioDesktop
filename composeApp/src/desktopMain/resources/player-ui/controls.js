@@ -37,6 +37,9 @@ const speedLabel = document.getElementById("speedLabel");
 const subtitlesLabel = document.getElementById("subtitlesLabel");
 const audioLabel = document.getElementById("audioLabel");
 const sourcesLabel = document.getElementById("sourcesLabel");
+const watchTogetherButton = document.getElementById("watchTogetherButton");
+const watchTogetherLabel = document.getElementById("watchTogetherLabel");
+const watchTogetherStatus = document.getElementById("watchTogetherStatus");
 const episodesLabel = document.getElementById("episodesLabel");
 const submitIntroButton = document.getElementById("submitIntroButton");
 const videoSettingsButton = document.getElementById("videoSettingsButton");
@@ -184,6 +187,10 @@ let state = {
   subtitlesLabel: "Subs",
   audioLabel: "Audio",
   sourcesLabel: "Sources",
+  watchTogetherEnabled: false,
+  watchTogetherActive: false,
+  watchTogetherLabel: "Watch Together",
+  watchTogetherStatus: "",
   episodesLabel: "Episodes",
   externalPlayerLabel: "External",
   playLabel: "Play",
@@ -2210,6 +2217,17 @@ const renderChrome = () => {
   subtitlesLabel.textContent = state.subtitlesLabel || "Subs";
   audioLabel.textContent = state.audioLabel || "Audio";
   sourcesLabel.textContent = state.sourcesLabel || "Sources";
+  if (watchTogetherButton) {
+    watchTogetherButton.hidden = !state.watchTogetherEnabled;
+    watchTogetherButton.classList.toggle("active", !!state.watchTogetherActive);
+  }
+  if (watchTogetherLabel) watchTogetherLabel.textContent = state.watchTogetherLabel || "Watch Together";
+  if (watchTogetherStatus) {
+    const status = state.watchTogetherStatus || "";
+    watchTogetherStatus.textContent = status;
+    watchTogetherStatus.hidden = status.length === 0;
+    watchTogetherStatus.title = status.length === 0 ? "" : "Click to copy";
+  }
   episodesLabel.textContent = state.episodesLabel || "Episodes";
   setActionButtonLabel("resize", state.resizeModeLabel || "Fit");
   setActionButtonLabel("speed", state.playbackSpeedLabel || "1x");
@@ -2610,6 +2628,10 @@ document.querySelectorAll("[data-command]").forEach(button => {
       sourceFilterId = "";
       openPlayerModal("sources");
       send("sources", 0);
+      return;
+    }
+    if (command === "watchTogether") {
+      send("watchTogether", 0);
       return;
     }
     if (command === "episodes") {
@@ -3610,3 +3632,15 @@ setProgress(0, 0);
 focusShortcutRoot();
 render();
 send("controlsReady", 0);
+
+// The pill holds the whole invite link. Copying it is the only way it reaches the other
+// person, so the click target is the text itself rather than a separate button.
+if (watchTogetherStatus) {
+  watchTogetherStatus.addEventListener("click", () => {
+    const text = watchTogetherStatus.textContent || "";
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  });
+}

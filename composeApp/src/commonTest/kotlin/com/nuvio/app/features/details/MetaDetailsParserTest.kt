@@ -17,9 +17,9 @@ class MetaDetailsParserTest {
 
     @Test
     fun `parse rejects aggregator error placeholder instead of storing it as meta`() {
-        // Verbatim shape an aggregator returns when a sub-addon lookup fails: a well-formed meta
-        // object whose name is the failing addon and whose description is the error text.
-        // Accepting it is what titled a series "[\u274C] Anime Kitsu" in stored watch progress.
+        // Verbatim shape returned by AIOStreams when a sub-addon lookup fails: a well-formed
+        // meta object whose name is the failing addon and whose description is the error.
+        // Accepting it is what titled Naruto Shippuuden "[❌] Anime Kitsu" in watch progress.
         assertFailsWith<IllegalStateException> {
             MetaDetailsParser.parse(
                 """
@@ -27,7 +27,7 @@ class MetaDetailsParserTest {
                   "meta": {
                     "id": "tt0988824",
                     "type": "series",
-                    "name": "[\u274C] Anime Kitsu",
+                    "name": "[❌] Anime Kitsu",
                     "description": "Request for meta for Anime Kitsu timed out after 30000ms"
                   }
                 }

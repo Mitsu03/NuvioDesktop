@@ -44,7 +44,7 @@ internal fun PlayerScreenRuntime.resolveDebridForPlayer(
 }
 
 internal fun PlayerScreenRuntime.p2pSentinelUrl(infoHash: String, fileIdx: Int?): String =
-    "torrent://$infoHash${fileIdx?.let { "?index=$it" }.orEmpty()}"
+    com.nuvio.app.features.p2p.buildP2pSentinelUrl(infoHash, fileIdx)
 
 internal fun PlayerScreenRuntime.isP2pStream(stream: StreamItem): Boolean =
     stream.needsLocalDebridResolve && stream.p2pInfoHash != null

@@ -3256,3 +3256,21 @@ svg {
   stroke: none;
   pointer-events: none;
 }
+
+/* Watch Together: the room address, shown where the host can read it out or copy it.
+   There is no rendezvous service, so the address has to travel with the invite. */
+.wt-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: var(--control-foreground, #fff);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  user-select: text;
+}
+.wt-status[hidden] { display: none; }

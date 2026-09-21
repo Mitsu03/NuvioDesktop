@@ -169,6 +169,15 @@ internal class PlayerScreenRuntime(
     var resizeMode by mutableStateOf(playerSettingsUiState.resizeMode.supportedOnCurrentPlatform())
     var layoutSize by mutableStateOf(IntSize.Zero)
     var playbackSnapshot by mutableStateOf(PlayerPlaybackSnapshot())
+
+    /**
+     * Why the room is paused, tracked explicitly so a stall clearing can never resume
+     * playback somebody had deliberately paused.
+     */
+    var watchTogetherPauseCause by mutableStateOf(com.nuvio.app.features.watchtogether.WtPauseCause.NONE)
+
+    /** Monotonically increasing, so a guest can discard an out-of-order state frame. */
+    var watchTogetherSequence: Long = 0L
     var playerController by mutableStateOf<PlayerEngineController?>(null)
     var playerLifecycleController by mutableStateOf<PlayerEngineController?>(null)
     val playerReleaseSurfaceRetention = PlayerReleaseSurfaceRetention()
