@@ -50,6 +50,13 @@ import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.auth.DeviceSessionRegistration
 import com.nuvio.app.core.build.AppFeaturePolicy
+import com.nuvio.app.core.build.AppVersionConfig
+import com.nuvio.app.core.sync.SyncClientIdentity
+import com.nuvio.app.features.p2p.P2pSettingsRepository
+import com.nuvio.app.features.watchtogether.WatchTogetherRepository
+import com.nuvio.app.features.watchtogether.WatchTogetherSettingsRepository
+import com.nuvio.app.features.watchtogether.parseWatchTogetherInvite
+import com.nuvio.app.features.watchtogether.toPlayerLaunch
 import com.nuvio.app.core.deeplink.AppDeepLink
 import com.nuvio.app.core.deeplink.AppDeepLinkRepository
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
@@ -115,7 +122,6 @@ import com.nuvio.app.features.library.toLibraryItem
 import com.nuvio.app.features.library.toMetaPreview
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.notifications.EpisodeReleaseNotificationsRepository
-import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.player.ExternalPlayerIntentResult
 import com.nuvio.app.features.player.ExternalPlayerPlatform
 import com.nuvio.app.features.player.PlayerLaunch
@@ -798,7 +804,45 @@ internal fun MainAppContent(
                         AppDeepLinkRepository.markConsumed(deepLink)
                     }
 
+                    is AppDeepLink.WatchTogetherJoin -> {
+                        if (AppFeaturePolicy.watchTogetherEnabled) {
+                            parseWatchTogetherInvite(deepLink.inviteUrl)?.let { invite ->
+                                WatchTogetherRepository.joinRoom(
+                                    invite = invite,
+                                    displayName = WatchTogetherSettingsRepository.uiState.value.displayName,
+                                    appVersion = AppVersionConfig.VERSION_NAME,
+                                    clientId = SyncClientIdentity.currentClientId(),
+                                    p2pEnabled = P2pSettingsRepository.uiState.value.p2pEnabled,
+                                )
+                            }
+                        }
+                        AppDeepLinkRepository.markConsumed(deepLink)
+                    }
+
                     null -> Unit
+                }
+            }
+        }
+
+        // A guest that has joined (or whose host switched source) opens the player on the
+        // host's content. The host's launchId is process-local and meaningless here, so the
+        // launch is rebuilt from the descriptor.
+        // Loaded here rather than only by the settings screen: otherwise the player's
+        // button stays hidden until you happen to visit settings once per launch.
+        LaunchedEffect(Unit) { WatchTogetherSettingsRepository.ensureLoaded() }
+
+        LaunchedEffect(Unit) {
+            WatchTogetherRepository.pendingGuestLaunch.collectLatest { pending ->
+                val guestLaunch = pending ?: return@collectLatest
+                val playerLaunch = guestLaunch.toPlayerLaunch(
+                    profileId = activePlaybackProfileId,
+                    p2pEnabled = P2pSettingsRepository.uiState.value.p2pEnabled,
+                )
+                WatchTogetherRepository.consumeGuestLaunch()
+                if (playerLaunch == null) return@collectLatest
+                val launchId = PlayerLaunchStore.put(playerLaunch)
+                navController.navigate(PlayerRoute(launchId = launchId, title = playerLaunch.title)) {
+                    launchSingleTop = true
                 }
             }
         }

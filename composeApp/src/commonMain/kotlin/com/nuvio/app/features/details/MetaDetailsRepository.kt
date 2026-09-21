@@ -142,7 +142,9 @@ object MetaDetailsRepository {
 
             for (manifest in manifests) {
                 val result = withContext(Dispatchers.Default) {
-                    tryFetchMeta(manifest, type, metaLookupId, includeMdbList = false)
+                    withTimeoutOrNull(LOAD_FETCH_TIMEOUT_MS) {
+                        tryFetchMeta(manifest, type, metaLookupId, includeMdbList = false)
+                    }
                 }
                 if (result != null) {
                     publishLoadedMeta(
@@ -244,6 +246,14 @@ object MetaDetailsRepository {
     }
 
     private const val FETCH_TIMEOUT_MS = 5_000L
+
+    /**
+     * Budget for one addon on the details screen. Larger than [FETCH_TIMEOUT_MS] because this is
+     * the interactive path and some series carry very large payloads (One Piece is ~1.3 MB), but
+     * bounded: without it the screen sits on an empty loading state until the 60s HTTP read
+     * timeout fires for every addon in turn, which reads as a permanently black screen.
+     */
+    private const val LOAD_FETCH_TIMEOUT_MS = 20_000L
     private const val METADATA_PROVIDER_READY_TIMEOUT_MS = 10_000L
     private const val TMDB_ENRICH_TIMEOUT_MS = 5_000L
     private const val MDBLIST_ENRICH_TIMEOUT_MS = 5_000L
@@ -316,7 +326,9 @@ object MetaDetailsRepository {
         log.d { "Retrying meta for id=$id with alternate ids=$alternateIds" }
         for (alternateId in alternateIds) {
             for (manifest in findMetaManifests(AddonRepository.uiState.value, type, alternateId)) {
-                val result = tryFetchMeta(manifest, type, alternateId, includeMdbList = false)
+                val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
+                    tryFetchMeta(manifest, type, alternateId, includeMdbList = false)
+                }
                 if (result != null) {
                     log.i { "Resolved meta for id=$id via alternate id=$alternateId" }
                     return AlternateMeta(id = alternateId, meta = result)

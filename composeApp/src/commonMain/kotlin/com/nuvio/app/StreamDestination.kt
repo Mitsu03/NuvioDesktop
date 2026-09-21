@@ -132,7 +132,7 @@ internal fun StreamDestination(
     val playerSettings by PlayerSettingsRepository.uiState.collectAsStateWithLifecycle()
 
     fun p2pSentinelUrl(infoHash: String, fileIdx: Int?): String =
-        "torrent://$infoHash${fileIdx?.let { "?index=$it" }.orEmpty()}"
+        com.nuvio.app.features.p2p.buildP2pSentinelUrl(infoHash, fileIdx)
 
     fun resolveLaunchContentLanguage(fallbackLanguage: String? = null): String? {
         val meta = MetaDetailsRepository.peek(

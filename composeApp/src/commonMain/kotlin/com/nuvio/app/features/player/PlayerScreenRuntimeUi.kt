@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
@@ -42,6 +43,12 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import com.nuvio.app.core.build.AppFeaturePolicy
+import com.nuvio.app.features.watchtogether.WatchTogetherConnection
+import com.nuvio.app.features.watchtogether.WatchTogetherRepository
+import com.nuvio.app.features.watchtogether.WatchTogetherSettingsRepository
+import com.nuvio.app.features.watchtogether.WatchTogetherUiState
+import com.nuvio.app.features.watchtogether.buildWatchTogetherInviteUrl
 
 private val playerControlsLog = Logger.withTag("PlayerControls")
 
@@ -239,6 +246,8 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
             )
         else -> ""
     }
+    val watchTogetherRoomState = rememberWatchTogetherRoomState()
+    val watchTogetherSettings = WatchTogetherSettingsRepository.uiState.collectAsState().value
     val playerControlsState = PlayerControlsState(
         title = title,
         episodeText = episodeText,
@@ -259,6 +268,9 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
         audioLabel = stringResource(Res.string.compose_player_audio),
         sourcesLabel = stringResource(Res.string.compose_player_sources),
         episodesLabel = stringResource(Res.string.compose_player_episodes),
+        watchTogetherEnabled = AppFeaturePolicy.watchTogetherEnabled && watchTogetherSettings.enabled,
+        watchTogetherActive = watchTogetherRoomState.isActive,
+        watchTogetherStatus = watchTogetherStatusText(watchTogetherRoomState),
         externalPlayerLabel = stringResource(Res.string.streams_open_external_player),
         playLabel = stringResource(Res.string.detail_btn_play),
         pauseLabel = stringResource(Res.string.compose_action_pause),
@@ -754,26 +766,52 @@ private fun PlayerScreenRuntime.handlePlayerControlsAction(action: PlayerControl
         PlayerControlsAction.RevealLockedOverlay -> revealLockedOverlay()
         PlayerControlsAction.Back -> requestBack()
         PlayerControlsAction.TogglePlayback -> {
+            // While a room is open every transport action must pass through Kotlin so it can
+            // be shared; otherwise the native fallback performs it and nobody ever sees it.
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherTogglePlayback()
+                return true
+            }
             prepareTogglePlaybackForNativeFallback()
             return false
         }
         PlayerControlsAction.KeyboardTogglePlayback -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherTogglePlayback()
+                return true
+            }
             prepareTogglePlaybackForNativeFallback(revealControls = false)
             return false
         }
         PlayerControlsAction.SeekBack -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(-10_000L)
+                return true
+            }
             prepareSeekByForNativeFallback(-10_000L)
             return false
         }
         PlayerControlsAction.KeyboardSeekBack -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(-10_000L)
+                return true
+            }
             prepareSeekByForNativeFallback(-10_000L, revealControls = false)
             return false
         }
         PlayerControlsAction.SeekForward -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(10_000L)
+                return true
+            }
             prepareSeekByForNativeFallback(10_000L)
             return false
         }
         PlayerControlsAction.KeyboardSeekForward -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(10_000L)
+                return true
+            }
             prepareSeekByForNativeFallback(10_000L, revealControls = false)
             return false
         }
@@ -782,7 +820,12 @@ private fun PlayerScreenRuntime.handlePlayerControlsAction(action: PlayerControl
             return false
         }
         PlayerControlsAction.ResizeMode -> cycleResizeMode()
-        PlayerControlsAction.Speed -> cyclePlaybackSpeed()
+        PlayerControlsAction.Speed -> {
+            // The sync engine owns mpv's speed on a guest; letting the user set it too
+            // means the two fight over one property.
+            if (isWatchTogetherGuest) return true
+            cyclePlaybackSpeed()
+        }
         PlayerControlsAction.Subtitles -> {
             refreshTracks()
             showSubtitleModal = true
@@ -792,10 +835,17 @@ private fun PlayerScreenRuntime.handlePlayerControlsAction(action: PlayerControl
             showAudioModal = true
         }
         PlayerControlsAction.Sources -> {
+            // A guest may not even have the addon behind these, and switching would
+            // desync the room. The host's change reaches it as a sourceChanged event.
+            if (isWatchTogetherGuest) return true
             prepareSourcesForPlayerControls()
         }
         PlayerControlsAction.Episodes -> {
+            if (isWatchTogetherGuest) return true
             prepareEpisodesForPlayerControls()
+        }
+        PlayerControlsAction.WatchTogether -> {
+            toggleWatchTogetherRoom()
         }
         PlayerControlsAction.OpenExternalPlayer -> openInExternalPlayer()
         PlayerControlsAction.SubmitIntro -> {
@@ -811,10 +861,18 @@ private fun PlayerScreenRuntime.handlePlayerControlsAction(action: PlayerControl
             }
         }
         PlayerControlsAction.DoubleTapSeekBack -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(-10_000L)
+                return true
+            }
             prepareDoubleTapSeekForNativeFallback(PlayerSeekDirection.Backward)
             return false
         }
         PlayerControlsAction.DoubleTapSeekForward -> {
+            if (watchTogetherInterceptsTransport) {
+                watchTogetherSeekBy(10_000L)
+                return true
+            }
             prepareDoubleTapSeekForNativeFallback(PlayerSeekDirection.Forward)
             return false
         }
@@ -1194,6 +1252,12 @@ private fun PlayerScreenRuntime.handlePlayerControlsScrubFinished(positionMs: Lo
     playerControlsLog.d { "scrubFinished positionMs=$positionMs controller=${playerController != null} ${playerControlLogContext()}" }
     isScrubbingTimeline = false
     scrubbingPositionMs = null
+    if (watchTogetherInterceptsTransport) {
+        // On the guest this only *asks*: seeking locally here would fight the host's next
+        // state frame, and the timeline would jump twice.
+        watchTogetherSeekTo(positionMs)
+        return
+    }
     playerController?.seekTo(positionMs)
     scheduleProgressSyncAfterSeek()
 }
@@ -1823,4 +1887,52 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
             showSubmitIntroModal = false
         },
     )
+}
+
+
+/**
+ * Opens a room around what is playing, or closes the one that is open.
+ *
+ * The host trigger has to live in the player: a room is bound to the source currently
+ * playing, so there is nothing to share from a settings screen.
+ */
+private fun PlayerScreenRuntime.toggleWatchTogetherRoom() {
+    controlsVisible = true
+    if (WatchTogetherRepository.uiState.value.isActive) {
+        WatchTogetherRepository.leaveRoom()
+        return
+    }
+    // Opening probes the host's own address to catch a firewall, which takes seconds
+    // precisely when it is blocked - far too long to hold the UI thread.
+    scope.launch { openWatchTogetherRoom() }
+}
+
+/**
+ * Observed, not read once: `WatchTogetherRepository.uiState` is a StateFlow rather than
+ * Compose state, so a plain `.value` read would never trigger the recomposition that
+ * starts the host's broadcast loop.
+ */
+@Composable
+internal fun rememberWatchTogetherRoomState(): WatchTogetherUiState =
+    WatchTogetherRepository.uiState.collectAsState().value
+
+/**
+ * What the pill in the control bar says.
+ *
+ * The address, not just a code: there is no rendezvous service in v1, so a six-character
+ * code alone cannot find the room and implying otherwise would only waste the pair's time.
+ */
+private fun watchTogetherStatusText(state: WatchTogetherUiState): String {
+    val invite = state.invite ?: return ""
+    return when {
+        state.unshareableReason != null -> state.unshareableReason.orEmpty()
+        state.errorMessage != null -> state.errorMessage.orEmpty()
+        state.connection == WatchTogetherConnection.CONNECTING -> "Connecting…"
+        // The whole invite, because that is what the other person has to receive. The
+        // code is only there to read aloud and confirm you both hold the same one.
+        state.isHost ->
+            buildWatchTogetherInviteUrl(invite) + "   ·   " + invite.displayCode +
+                if (state.participants.isEmpty()) "" else "   ·   " + state.participants.size
+        else -> "Watching with ${invite.baseUrl}"
+    }
 }

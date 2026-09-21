@@ -619,6 +619,23 @@ internal class NativePlayerController(
         NativePlayerBridge.setSpeed(current, next)
     }
 
+    /**
+
+     * A direct JNI read, for Watch Together's 200 ms sync loop.
+
+     *
+
+     * Cheap enough to call five times a second, and deliberately separate from the shared
+
+     * 500 ms snapshot loop, which is too coarse for a 120 ms sync band but also drives
+
+     * progress persistence and next-episode logic.
+
+     */
+
+    override fun probeSnapshot(): PlayerPlaybackSnapshot = snapshot()
+
+
     fun snapshot(): PlayerPlaybackSnapshot {
         val current = handle
         if (current == 0L) return PlayerPlaybackSnapshot(isLoading = true)
@@ -1177,6 +1194,7 @@ private fun String.toPlayerControlsAction(): PlayerControlsAction? =
         "audio" -> PlayerControlsAction.Audio
         "sources" -> PlayerControlsAction.Sources
         "episodes" -> PlayerControlsAction.Episodes
+        "watchTogether" -> PlayerControlsAction.WatchTogether
         "external" -> PlayerControlsAction.OpenExternalPlayer
         "submitIntro" -> PlayerControlsAction.SubmitIntro
         "videoSettings" -> PlayerControlsAction.VideoSettings
@@ -1224,6 +1242,12 @@ private fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
         appendJsonField("sourcesLabel", sourcesLabel)
         append(',')
         appendJsonField("episodesLabel", episodesLabel)
+        // The serializer is hand-rolled: a field without a line here is silently
+        // dropped and the WebView simply never sees it.
+        appendJsonField("watchTogetherEnabled", watchTogetherEnabled)
+        appendJsonField("watchTogetherActive", watchTogetherActive)
+        appendJsonField("watchTogetherLabel", watchTogetherLabel)
+        appendJsonField("watchTogetherStatus", watchTogetherStatus)
         append(',')
         appendJsonField("externalPlayerLabel", externalPlayerLabel)
         append(',')

@@ -15,6 +15,9 @@ expect object AppFeaturePolicy {
     val accountDeletionEnabled: Boolean
     val personalMediaAddonCopyEnabled: Boolean
     val p2pEnabled: Boolean
+
+    /** Watch Together hosts an HTTP server on the LAN; desktop-only in v1. */
+    val watchTogetherEnabled: Boolean
     val externalPlayerSupported: Boolean
     val trailerPlaybackMode: TrailerPlaybackMode
     val heroTrailerPlaybackSupported: Boolean

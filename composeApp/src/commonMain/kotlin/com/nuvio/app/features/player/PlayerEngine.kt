@@ -7,6 +7,17 @@ interface PlayerEngineController {
     fun play()
     fun pause()
     fun seekTo(positionMs: Long)
+    /**
+     * A direct, unbuffered read of the current playback state, when the platform can give
+     * one cheaply.
+     *
+     * The shared snapshot loop polls at 500 ms, which is far too coarse for Watch Together's
+     * 120 ms sync band — but it also drives progress persistence, the controls timeline and
+     * next-episode logic, so it is left alone and the sync loop reads through here instead.
+     * Platforms that cannot probe return null and degrade to the shared snapshot.
+     */
+    fun probeSnapshot(): PlayerPlaybackSnapshot? = null
+
     fun trySeekTo(positionMs: Long): Boolean {
         seekTo(positionMs)
         return true
@@ -70,6 +81,7 @@ enum class PlayerControlsAction {
     VideoSettings,
     DoubleTapSeekBack,
     DoubleTapSeekForward,
+    WatchTogether,
 }
 
 data class PlayerControlsState(
@@ -121,6 +133,15 @@ data class PlayerControlsState(
     val submitIntroEndTimeLabel: String = "END TIME (MM:SS)",
     val submitIntroCaptureLabel: String = "Capture",
     val submitIntroSubmitLabel: String = "Submit",
+    /**
+     * Coarse on purpose. `updateControls` short-circuits on an unchanged structure key, so
+     * anything that moves every tick — a live drift figure, say — would re-serialize and
+     * re-post the whole controls payload into the WebView once a second.
+     */
+    val watchTogetherEnabled: Boolean = false,
+    val watchTogetherActive: Boolean = false,
+    val watchTogetherLabel: String = "Watch Together",
+    val watchTogetherStatus: String = "",
     val p2pConsentTitle: String = "P2P Streaming",
     val p2pConsentBody: String = "",
     val p2pConsentEnableLabel: String = "Enable P2P",
