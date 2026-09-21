@@ -947,7 +947,7 @@ private fun ContinueWatchingWideCard(
             imageUrls = artworkCandidates,
             width = layout.widePosterStripWidth,
             blurred = shouldBlurArtwork,
-            fallbackUrl = item.fallbackUrlForArtwork(artworkUrl),
+            fallbackUrl = item.fallbackUrlForArtwork(artworkCandidates.firstOrNull()),
             contentScale = if (item.isCloudLibraryItem()) ContentScale.Fit else ContentScale.Crop,
             modifier = Modifier.fillMaxHeight(),
         )
