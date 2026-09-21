@@ -63,3 +63,11 @@ internal fun PlayerScreenRuntime.applySubtitleAutoSyncCue(cue: SubtitleSyncCue) 
         .coerceIn(SUBTITLE_DELAY_MIN_MS, SUBTITLE_DELAY_MAX_MS)
     setSubtitleDelay(newDelayMs)
 }
+
+/**
+ * Automatic (algorithmic) subtitle sync, as opposed to the manual capture-a-line tool above.
+ * No-op on platforms that don't implement it yet (desktop only, for now). Safe to call whenever
+ * the selected subtitle may have changed -- e.g. from [PlayerScreenRuntime.refreshTracks] -- since
+ * a real implementation is expected to dedupe against the subtitle it already synced.
+ */
+internal expect fun PlayerScreenRuntime.maybeRunAutomaticSubtitleSyncV2()
