@@ -20,6 +20,14 @@ internal sealed interface AppDeepLink {
     ) : AppDeepLink
 
     data object Downloads : AppDeepLink
+
+    /**
+     * A Watch Together invite. Carries the raw URL rather than a parsed invite so this file
+     * stays free of the feature's types; the room dialog parses it.
+     */
+    data class WatchTogetherJoin(
+        val inviteUrl: String,
+    ) : AppDeepLink
 }
 
 internal object AppDeepLinkRepository {
@@ -92,6 +100,9 @@ internal fun parseAppDeepLink(url: String): AppDeepLink? {
         "imdb", "tmdb" -> parseProviderMetaDeepLink(host, pathSegments, parsedUrl)
 
         "downloads" -> AppDeepLink.Downloads
+
+        // Its own host: bare "watch" above already means "open these details".
+        "watch-together" -> AppDeepLink.WatchTogetherJoin(url.trim())
 
         "auth" -> null
 

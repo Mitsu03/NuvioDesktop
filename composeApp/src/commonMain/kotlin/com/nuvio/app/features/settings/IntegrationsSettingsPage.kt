@@ -1,12 +1,15 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.lazy.LazyListScope
+import com.nuvio.app.core.build.AppFeaturePolicy
 import nuvio.composeapp.generated.resources.compose_settings_page_debrid
+import nuvio.composeapp.generated.resources.compose_settings_page_watch_together
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_settings_page_mdblist_ratings
 import nuvio.composeapp.generated.resources.compose_settings_page_tmdb_enrichment
 import nuvio.composeapp.generated.resources.settings_integrations_mdblist_description
 import nuvio.composeapp.generated.resources.settings_integrations_debrid_description
+import nuvio.composeapp.generated.resources.settings_integrations_watch_together_description
 import nuvio.composeapp.generated.resources.settings_integrations_section_title
 import nuvio.composeapp.generated.resources.settings_integrations_tmdb_description
 import org.jetbrains.compose.resources.stringResource
@@ -16,6 +19,7 @@ internal fun LazyListScope.integrationsContent(
     onTmdbClick: () -> Unit,
     onMdbListClick: () -> Unit,
     onDebridClick: () -> Unit,
+    onWatchTogetherClick: () -> Unit,
 ) {
     item {
         SettingsSection(
@@ -45,6 +49,15 @@ internal fun LazyListScope.integrationsContent(
                     isTablet = isTablet,
                     onClick = onDebridClick,
                 )
+                if (AppFeaturePolicy.watchTogetherEnabled) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.compose_settings_page_watch_together),
+                        description = stringResource(Res.string.settings_integrations_watch_together_description),
+                        isTablet = isTablet,
+                        onClick = onWatchTogetherClick,
+                    )
+                }
             }
         }
     }

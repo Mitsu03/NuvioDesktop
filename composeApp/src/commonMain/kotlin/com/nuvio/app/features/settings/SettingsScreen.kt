@@ -2,6 +2,8 @@ package com.nuvio.app.features.settings
 
 import com.nuvio.app.AppScreenTab
 import com.nuvio.app.core.build.AppFeaturePolicy
+import com.nuvio.app.features.watchtogether.WatchTogetherSettings
+import com.nuvio.app.features.watchtogether.WatchTogetherSettingsRepository
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -114,6 +116,7 @@ private fun SettingsPage.isEnabledByPolicy(): Boolean =
         SettingsPage.Notifications -> AppFeaturePolicy.notificationsEnabled
         SettingsPage.Plugins -> AppFeaturePolicy.pluginsEnabled
         SettingsPage.SupportersContributors -> AppFeaturePolicy.supportersContributorsPageEnabled
+        SettingsPage.WatchTogether -> AppFeaturePolicy.watchTogetherEnabled
         else -> true
     }
 
@@ -191,6 +194,10 @@ fun SettingsScreen(
         val debridSettings by remember {
             DebridSettingsRepository.ensureLoaded()
             DebridSettingsRepository.uiState
+        }.collectAsStateWithLifecycle()
+        val watchTogetherSettings by remember {
+            WatchTogetherSettingsRepository.ensureLoaded()
+            WatchTogetherSettingsRepository.uiState
         }.collectAsStateWithLifecycle()
         val traktAuthUiState by remember {
             TraktAuthRepository.ensureLoaded()
@@ -389,6 +396,7 @@ fun SettingsScreen(
                 tmdbSettings = tmdbSettings,
                 mdbListSettings = mdbListSettings,
                 debridSettings = debridSettings,
+                watchTogetherSettings = watchTogetherSettings,
                 traktAuthUiState = traktAuthUiState,
                 simklAuthUiState = simklAuthUiState,
                 traktCommentsEnabled = traktCommentsEnabled,
@@ -457,6 +465,7 @@ fun SettingsScreen(
                 tmdbSettings = tmdbSettings,
                 mdbListSettings = mdbListSettings,
                 debridSettings = debridSettings,
+                watchTogetherSettings = watchTogetherSettings,
                 traktAuthUiState = traktAuthUiState,
                 simklAuthUiState = simklAuthUiState,
                 traktCommentsEnabled = traktCommentsEnabled,
@@ -536,6 +545,7 @@ private fun MobileSettingsScreen(
     episodeReleaseNotificationsUiState: EpisodeReleaseNotificationsUiState,
     tmdbSettings: TmdbSettings,
     mdbListSettings: MdbListSettings,
+    watchTogetherSettings: WatchTogetherSettings,
     debridSettings: DebridSettings,
     traktAuthUiState: TraktAuthUiState,
     simklAuthUiState: SimklAuthUiState,
@@ -818,6 +828,7 @@ private fun MobileSettingsScreen(
                     onTmdbClick = { onPageChange(SettingsPage.TmdbEnrichment) },
                     onMdbListClick = { onPageChange(SettingsPage.MdbListRatings) },
                     onDebridClick = { onPageChange(SettingsPage.Debrid) },
+                    onWatchTogetherClick = { onPageChange(SettingsPage.WatchTogether) },
                 )
                 SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                     isTablet = false,
@@ -826,6 +837,10 @@ private fun MobileSettingsScreen(
                 SettingsPage.MdbListRatings -> mdbListSettingsContent(
                     isTablet = false,
                     settings = mdbListSettings,
+                )
+                SettingsPage.WatchTogether -> watchTogetherSettingsContent(
+                    isTablet = false,
+                    settings = watchTogetherSettings,
                 )
                 SettingsPage.Debrid -> debridSettingsContent(
                     isTablet = false,
@@ -931,6 +946,7 @@ private fun TabletSettingsScreen(
     episodeReleaseNotificationsUiState: EpisodeReleaseNotificationsUiState,
     tmdbSettings: TmdbSettings,
     mdbListSettings: MdbListSettings,
+    watchTogetherSettings: WatchTogetherSettings,
     debridSettings: DebridSettings,
     traktAuthUiState: TraktAuthUiState,
     simklAuthUiState: SimklAuthUiState,
@@ -1282,6 +1298,7 @@ private fun TabletSettingsScreen(
                                 onTmdbClick = { onPageChange(SettingsPage.TmdbEnrichment) },
                                 onMdbListClick = { onPageChange(SettingsPage.MdbListRatings) },
                                 onDebridClick = { onPageChange(SettingsPage.Debrid) },
+                                onWatchTogetherClick = { onPageChange(SettingsPage.WatchTogether) },
                             )
                             SettingsPage.TmdbEnrichment -> tmdbSettingsContent(
                                 isTablet = true,
@@ -1290,6 +1307,10 @@ private fun TabletSettingsScreen(
                             SettingsPage.MdbListRatings -> mdbListSettingsContent(
                                 isTablet = true,
                                 settings = mdbListSettings,
+                            )
+                            SettingsPage.WatchTogether -> watchTogetherSettingsContent(
+                                isTablet = true,
+                                settings = watchTogetherSettings,
                             )
                             SettingsPage.Debrid -> debridSettingsContent(
                                 isTablet = true,

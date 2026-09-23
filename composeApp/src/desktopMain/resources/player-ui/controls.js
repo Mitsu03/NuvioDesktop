@@ -38,6 +38,9 @@ const speedLabel = document.getElementById("speedLabel");
 const subtitlesLabel = document.getElementById("subtitlesLabel");
 const audioLabel = document.getElementById("audioLabel");
 const sourcesLabel = document.getElementById("sourcesLabel");
+const watchTogetherButton = document.getElementById("watchTogetherButton");
+const watchTogetherLabel = document.getElementById("watchTogetherLabel");
+const watchTogetherStatus = document.getElementById("watchTogetherStatus");
 const episodesLabel = document.getElementById("episodesLabel");
 const submitIntroButton = document.getElementById("submitIntroButton");
 const videoSettingsButton = document.getElementById("videoSettingsButton");
@@ -185,6 +188,10 @@ let state = {
   subtitlesLabel: "Subs",
   audioLabel: "Audio",
   sourcesLabel: "Sources",
+  watchTogetherEnabled: false,
+  watchTogetherActive: false,
+  watchTogetherLabel: "Watch Together",
+  watchTogetherStatus: "",
   episodesLabel: "Episodes",
   externalPlayerLabel: "External",
   playLabel: "Play",
@@ -453,6 +460,9 @@ const chromeActivityThrottleMs = 300;
 const hiddenCursorHideDelayMs = 3000;
 const cursorActivityThrottleMs = 100;
 const playerToastDurationMs = 1400;
+// Notifications are a sentence to read (auto-skip, the AutoSync result), not a glanceable
+// "2x" or "+10s", so they stay up long enough to actually be read.
+const playerNotificationToastDurationMs = 6500;
 const chromeInteractionSelector = [
   "button",
   "input",
@@ -501,9 +511,10 @@ const hidePlayerToast = token => {
   playerToast.setAttribute("aria-hidden", "true");
 };
 
-const showPlayerToast = (message, { durationMs = playerToastDurationMs, icon = null, persistent = false } = {}) => {
+const showPlayerToast = (message, { durationMs = playerToastDurationMs, icon = null, persistent = false, wide = false } = {}) => {
   const cleanMessage = String(message || "").trim();
   if (!playerToast || !playerToastText || !cleanMessage) return;
+  playerToast.classList.toggle("player-toast-message", wide);
   window.clearTimeout(playerToastTimer);
   playerToastToken += 1;
   const token = playerToastToken;
@@ -2261,6 +2272,17 @@ const renderChrome = () => {
   subtitlesLabel.textContent = state.subtitlesLabel || "Subs";
   audioLabel.textContent = state.audioLabel || "Audio";
   sourcesLabel.textContent = state.sourcesLabel || "Sources";
+  if (watchTogetherButton) {
+    watchTogetherButton.hidden = !state.watchTogetherEnabled;
+    watchTogetherButton.classList.toggle("active", !!state.watchTogetherActive);
+  }
+  if (watchTogetherLabel) watchTogetherLabel.textContent = state.watchTogetherLabel || "Watch Together";
+  if (watchTogetherStatus) {
+    const status = state.watchTogetherStatus || "";
+    watchTogetherStatus.textContent = status;
+    watchTogetherStatus.hidden = status.length === 0;
+    watchTogetherStatus.title = status.length === 0 ? "" : "Click to copy";
+  }
   episodesLabel.textContent = state.episodesLabel || "Episodes";
   setActionButtonLabel("resize", state.resizeModeLabel || "Fit");
   setActionButtonLabel("speed", state.playbackSpeedLabel || "1x");
@@ -2668,6 +2690,10 @@ document.querySelectorAll("[data-command]").forEach(button => {
       send("sources", 0);
       return;
     }
+    if (command === "watchTogether") {
+      send("watchTogether", 0);
+      return;
+    }
     if (command === "episodes") {
       episodeStreamFilterId = "";
       openPlayerModal("episodes");
@@ -3052,7 +3078,9 @@ window.playerControls = nextState => {
   }
   const notificationToken = Number(state.notificationToken) || 0;
   if (notificationToken !== previousNotificationToken) {
-    showPlayerToast(state.notificationMessage);
+    // Notifications carry a sentence (auto-skip, AutoSync result), not a glanceable "2x" or
+    // "+10s", so they get a second longer on screen than the gesture toasts.
+    showPlayerToast(state.notificationMessage, { durationMs: playerNotificationToastDurationMs, wide: true });
   }
   if (state.showP2pConsent && activeModal !== "p2pConsent") {
     openPlayerModal("p2pConsent");
@@ -3697,3 +3725,15 @@ setProgress(0, 0);
 focusShortcutRoot();
 render();
 send("controlsReady", 0);
+
+// The pill holds the whole invite link. Copying it is the only way it reaches the other
+// person, so the click target is the text itself rather than a separate button.
+if (watchTogetherStatus) {
+  watchTogetherStatus.addEventListener("click", () => {
+    const text = watchTogetherStatus.textContent || "";
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  });
+}

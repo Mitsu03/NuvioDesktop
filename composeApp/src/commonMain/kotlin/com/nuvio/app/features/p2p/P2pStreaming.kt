@@ -255,3 +255,13 @@ private fun Double.formatOneDecimal(): String {
 
 private fun Double.formatNoDecimal(): String =
     kotlin.math.round(this).toInt().toString()
+
+/**
+ * The placeholder URL a torrent stream carries until the local engine resolves it.
+ *
+ * Not fetchable by anything: it identifies the torrent, and each device turns it into its
+ * own TorrServer URL. Shared from here so the stream list, the player runtime and a Watch
+ * Together guest cannot drift apart on the format.
+ */
+internal fun buildP2pSentinelUrl(infoHash: String, fileIdx: Int?): String =
+    "torrent://$infoHash${fileIdx?.let { "?index=$it" }.orEmpty()}"

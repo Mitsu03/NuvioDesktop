@@ -1099,6 +1099,10 @@
     <string name="settings_playback_anime_skip_description">Also search AnimeSkip for skip timestamps (requires client ID).</string>
     <string name="settings_playback_auto_play_next_episode">Auto-play Next Episode</string>
     <string name="settings_playback_auto_play_next_episode_description">Start next episode automatically when prompt appears.</string>
+    <string name="settings_playback_auto_sync">Automatic subtitle sync</string>
+    <string name="settings_playback_auto_sync_aggressive">Aggressive matching</string>
+    <string name="settings_playback_auto_sync_aggressive_description">Accept lower-confidence matches. Fixes more subtitles, at the cost of occasionally syncing one to the wrong timing.</string>
+    <string name="settings_playback_auto_sync_description">When you pick an addon subtitle, measure how far it drifts from the video’s own subtitle track and correct it automatically.</string>
     <string name="settings_playback_auto_play_next_episode_fallback">Fallback when binge group fails</string>
     <string name="settings_playback_auto_play_next_episode_fallback_description">Auto-select first available stream if binge group is not found. When off, shows the stream picker instead.</string>
     <string name="settings_playback_decoder_device_only">Device decoders only</string>
@@ -1203,6 +1207,7 @@
     <string name="settings_playback_section_stream_auto_play">STREAM AUTO-PLAY</string>
     <string name="settings_playback_section_stream_selection">STREAM SELECTION</string>
     <string name="settings_playback_section_subtitle_audio">SUBTITLE AND AUDIO</string>
+    <string name="settings_playback_section_subtitle_auto_sync">SUBTITLE AUTO SYNC</string>
     <string name="settings_playback_section_subtitle_rendering">SUBTITLE RENDERING</string>
     <string name="settings_playback_selected_count">%1$d selected</string>
     <string name="settings_playback_show_loading_overlay">Loading Overlay</string>
@@ -1459,6 +1464,9 @@
     <string name="player_auto_skip_intro_notification">Intro skipped to %1$s</string>
     <string name="player_auto_skip_recap_notification">Recap skipped to %1$s</string>
     <string name="player_auto_skip_outro_notification">Outro skipped to %1$s</string>
+    <string name="player_auto_sync_applied">Subtitles synced automatically (%1$s) ✅</string>
+    <string name="player_auto_sync_failed">Couldn't sync these subtitles automatically ❌</string>
+    <string name="player_auto_sync_running">Syncing subtitles…</string>
     <string name="compose_player_no_subtitles_found">No subtitles found</string>
     <string name="lang_afrikaans">Afrikaans</string>
     <string name="lang_albanian">Albanian</string>
@@ -2418,4 +2426,21 @@
     <string name="compose_player_show_remaining_time">Show remaining time</string>
     <string name="compose_player_brightness">Brightness</string>
     <string name="compose_player_volume">Volume</string>
+    <string name="compose_settings_page_watch_together">Watch Together</string>
+    <string name="settings_integrations_watch_together_description">Watch in sync with someone else</string>
+    <string name="settings_watch_together_section_title">WATCH TOGETHER</string>
+    <string name="settings_watch_together_section_network">NETWORK</string>
+    <string name="settings_watch_together_enable">Enable Watch Together</string>
+    <string name="settings_watch_together_enable_description">Lets you share what you are watching with someone else, in sync</string>
+    <string name="settings_watch_together_auto_accept">Let people in automatically</string>
+    <string name="settings_watch_together_auto_accept_description">Anyone with the invite joins without asking you first</string>
+    <string name="settings_watch_together_name_label">Your name</string>
+    <string name="settings_watch_together_port_label">Port</string>
+    <string name="settings_watch_together_port_description">Kept between sessions so the firewall rule you allowed keeps working</string>
+    <string name="settings_watch_together_address_label">Address to share</string>
+    <string name="settings_watch_together_address_description">Leave empty to use your local network address. Set a Tailscale or tunnel address to reach someone outside your network.</string>
+    <string name="settings_watch_together_reach_note">On the same network this works as is. From elsewhere, the other person cannot reach this computer without a tunnel — Tailscale is the simplest — or a forwarded port on your router.</string>
+    <string name="settings_watch_together_join_label">Invite link</string>
+    <string name="settings_watch_together_join_description">Paste the link the host sent you. A room lives on the host’s computer, so the address has to travel with the invite.</string>
+    <string name="settings_watch_together_join_action">Join</string>
 </resources>
