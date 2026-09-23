@@ -25,6 +25,9 @@ import com.nuvio.app.features.player.SubtitleStyleState
 import com.nuvio.app.features.player.SubtitleTrack
 import com.nuvio.app.features.player.inferForcedSubtitleTrack
 import com.nuvio.app.features.player.toStorageHexString
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -1003,13 +1006,44 @@ internal class NativePlayerController(
         applyPendingSubtitleSettings()
     }
 
+    /**
+     * `sub-add` downloads the subtitle before it returns and `mpv_command` is synchronous, so on a
+     * remote URL this is seconds of HTTP on whatever thread calls it -- which was the Swing EDT,
+     * and a thread dump taken during a reported freeze showed the UI parked in `addSubtitleUrl`
+     * for ~8s. The native command path takes `mpvMutex` and is written to be called from any
+     * thread, so the fetch moves off the EDT here. One thread rather than a pool: a clear and the
+     * add that follows it must not interleave with a later selection's pair.
+     */
     override fun setSubtitleUri(url: String) {
         log.d { "setSubtitleUri ${url.toPlaybackLogKey()} handle=$handle" }
-        handle.takeIf { it != 0L }?.let { current ->
-            NativePlayerBridge.clearExternalSubtitles(current)
-            NativePlayerBridge.addSubtitleUrl(current, url)
+        val current = handle.takeIf { it != 0L } ?: return
+        val queued = runCatching {
+            subtitleCommandExecutor.execute {
+                // The handle can be torn down while this queues; re-check that it is still the
+                // very same player rather than trusting the captured value.
+                if (handle != current) return@execute
+                NativePlayerBridge.clearExternalSubtitles(current)
+                NativePlayerBridge.addSubtitleUrl(current, url)
+            }
+        }
+        if (queued.isFailure) {
+            log.w { "setSubtitleUri could not be queued handle=$current: ${queued.exceptionOrNull()}" }
         }
     }
+
+    /**
+     * Core size 0 with a single max thread: ordering is preserved by the queue, and the worker
+     * goes away on its own once idle, so this never needs shutting down. An executor that *is*
+     * shut down would be wrong here -- the player handle is disposed and re-created while this
+     * controller lives on, and a `setSubtitleUri` after the first disposal would be rejected.
+     */
+    private val subtitleCommandExecutor = ThreadPoolExecutor(
+        0,
+        1,
+        30L,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(),
+    ) { runnable -> Thread(runnable, "nuvio-mpv-subtitle").apply { isDaemon = true } }
 
     override fun clearExternalSubtitle() {
         log.d { "clearExternalSubtitle handle=$handle" }
