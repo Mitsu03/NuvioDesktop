@@ -730,6 +730,10 @@
     <string name="settings_playback_anime_skip_description">Também buscar no AnimeSkip por timestamps de pular (requer client ID).</string>
     <string name="settings_playback_auto_play_next_episode">Reproduzir Próximo Episódio Automaticamente</string>
     <string name="settings_playback_auto_play_next_episode_description">Iniciar próximo episódio automaticamente quando o prompt aparecer.</string>
+    <string name="settings_playback_auto_sync">Sincronização automática</string>
+    <string name="settings_playback_auto_sync_aggressive">Correspondência agressiva</string>
+    <string name="settings_playback_auto_sync_aggressive_description">Aceita correspondências com menos confiança. Corrige mais legendas, mas às vezes sincroniza uma no tempo errado.</string>
+    <string name="settings_playback_auto_sync_description">Ao escolher uma legenda de addon, mede o quanto ela desvia da faixa de legendas do próprio vídeo e corrige automaticamente.</string>
     <string name="settings_playback_decoder_device_only">Apenas decodificadores do dispositivo</string>
     <string name="settings_playback_decoder_prefer_app">Preferir decodificadores do app (FFmpeg)</string>
     <string name="settings_playback_decoder_prefer_device">Preferir decodificadores do dispositivo</string>
@@ -810,6 +814,7 @@
     <string name="settings_playback_section_stream_auto_play">REPRODUÇÃO AUTOMÁTICA DE STREAM</string>
     <string name="settings_playback_section_stream_selection">SELEÇÃO DE STREAM</string>
     <string name="settings_playback_section_subtitle_audio">LEGENDA E ÁUDIO</string>
+    <string name="settings_playback_section_subtitle_auto_sync">SINCRONIZAÇÃO DE LEGENDA</string>
     <string name="settings_playback_section_subtitle_rendering">RENDERIZAÇÃO DE LEGENDA</string>
     <string name="settings_playback_selected_count">%1$d selecionado(s)</string>
     <string name="settings_playback_show_loading_overlay">Overlay de Carregamento</string>
