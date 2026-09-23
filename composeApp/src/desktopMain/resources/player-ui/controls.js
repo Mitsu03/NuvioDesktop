@@ -422,6 +422,9 @@ const chromeActivityThrottleMs = 300;
 const hiddenCursorHideDelayMs = 3000;
 const cursorActivityThrottleMs = 100;
 const playerToastDurationMs = 1400;
+// Notifications are a sentence to read (auto-skip, the AutoSync result), not a glanceable
+// "2x" or "+10s", so they stay up long enough to actually be read.
+const playerNotificationToastDurationMs = 6500;
 const chromeInteractionSelector = [
   "button",
   "input",
@@ -470,9 +473,10 @@ const hidePlayerToast = token => {
   playerToast.setAttribute("aria-hidden", "true");
 };
 
-const showPlayerToast = (message, { durationMs = playerToastDurationMs, icon = null, persistent = false } = {}) => {
+const showPlayerToast = (message, { durationMs = playerToastDurationMs, icon = null, persistent = false, wide = false } = {}) => {
   const cleanMessage = String(message || "").trim();
   if (!playerToast || !playerToastText || !cleanMessage) return;
+  playerToast.classList.toggle("player-toast-message", wide);
   window.clearTimeout(playerToastTimer);
   playerToastToken += 1;
   const token = playerToastToken;
@@ -3017,7 +3021,9 @@ window.playerControls = nextState => {
   }
   const notificationToken = Number(state.notificationToken) || 0;
   if (notificationToken !== previousNotificationToken) {
-    showPlayerToast(state.notificationMessage);
+    // Notifications carry a sentence (auto-skip, AutoSync result), not a glanceable "2x" or
+    // "+10s", so they get a second longer on screen than the gesture toasts.
+    showPlayerToast(state.notificationMessage, { durationMs: playerNotificationToastDurationMs, wide: true });
   }
   if (state.showP2pConsent && activeModal !== "p2pConsent") {
     openPlayerModal("p2pConsent");

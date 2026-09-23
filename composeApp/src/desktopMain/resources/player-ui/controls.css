@@ -124,7 +124,11 @@ body {
   overflow: hidden;
   background: transparent;
   color: var(--theme-control-foreground);
-  font-family: "Nuvio JetBrains Sans", "JetBrains Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* The emoji faces are last on purpose: they only ever serve glyphs the text fonts above
+     do not carry, and without them a bundled webfont with no emoji coverage leaves the
+     check/cross in a toast rendering as nothing at all. */
+  font-family: "Nuvio JetBrains Sans", "JetBrains Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   letter-spacing: 0;
   user-select: none;
 }
@@ -273,6 +277,21 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/*
+ * The base toast is sized for a glanceable "2x" or "+10s": 240px, one line, ellipsis. A sentence
+ * does not survive that -- and since the status emoji sits at the end of the sentence, the
+ * ellipsis eats exactly the part that carries the meaning. Messages get room and wrap instead.
+ */
+.player-toast.player-toast-message {
+  max-width: min(560px, calc(100% - 40px));
+}
+
+.player-toast.player-toast-message .player-toast-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .player-toast.visible {

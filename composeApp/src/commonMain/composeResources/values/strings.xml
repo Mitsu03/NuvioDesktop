@@ -1408,6 +1408,9 @@
     <string name="player_auto_skip_intro_notification">Intro skipped to %1$s</string>
     <string name="player_auto_skip_recap_notification">Recap skipped to %1$s</string>
     <string name="player_auto_skip_outro_notification">Outro skipped to %1$s</string>
+    <string name="player_auto_sync_applied">Subtitles synced automatically (%1$s) ✅</string>
+    <string name="player_auto_sync_failed">Couldn't sync these subtitles automatically ❌</string>
+    <string name="player_auto_sync_running">Syncing subtitles…</string>
     <string name="compose_player_no_subtitles_found">No subtitles found</string>
     <string name="lang_afrikaans">Afrikaans</string>
     <string name="lang_albanian">Albanian</string>

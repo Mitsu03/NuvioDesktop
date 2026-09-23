@@ -1567,6 +1567,9 @@
     <string name="unit_bytes_gb">GB</string>
     <string name="player_action_submit_intro">Enviar introdução</string>
     <string name="player_action_video_settings">Definições de vídeo</string>
+    <string name="player_auto_sync_applied">Legendas sincronizadas automaticamente (%1$s) ✅</string>
+    <string name="player_auto_sync_failed">Não foi possível sincronizar estas legendas ❌</string>
+    <string name="player_auto_sync_running">A sincronizar legendas…</string>
     <string name="cloud_library_provider_unavailable">A biblioteca na nuvem não está disponível para %1$s.</string>
     <string name="player_video_settings_title">Vídeo</string>
     <string name="player_video_settings_reset_tuning">Repor ajustes</string>
