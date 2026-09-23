@@ -7,8 +7,10 @@ import kotlinx.coroutines.launch
 
 /**
  * Real AutoSync V2 trigger. Called from [PlayerScreenRuntime.refreshTracks] on every track-list
- * refresh; safe to call repeatedly because [AutoSyncPreferences.claimStartupRun] dedupes on
- * (player session, selected subtitle) so it only actually runs once per selection.
+ * refresh, and from the two addon-subtitle selection handlers -- refreshTracks alone only fires
+ * when the subtitle panel is *opened*, which is before the user has picked anything, so a fresh
+ * selection would otherwise never be synced. Safe to call repeatedly because
+ * [AutoSyncPreferences.claimStartupRun] dedupes on (player session, selected subtitle).
  */
 internal actual fun PlayerScreenRuntime.maybeRunAutomaticSubtitleSyncV2() {
     if (!AutoSyncPreferences.isEnabled()) return

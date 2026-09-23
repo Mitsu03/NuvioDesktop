@@ -1030,6 +1030,7 @@ private fun PlayerScreenRuntime.handlePlayerControlsEvent(type: String, value: D
             useCustomSubtitles = true
             persistAddonSubtitlePreference(addon)
             playerController?.setSubtitleUri(addon.url)
+            maybeRunAutomaticSubtitleSyncV2()
         }
         "subtitleDelayDelta" -> setSubtitleDelay((subtitleDelayMs + value.toInt()).coerceIn(SUBTITLE_DELAY_MIN_MS, SUBTITLE_DELAY_MAX_MS))
         "subtitleDelayReset" -> setSubtitleDelay(0)
@@ -1777,6 +1778,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
             preferredSubtitleSelectionApplied = true
             persistAddonSubtitlePreference(addon)
             playerController?.setSubtitleUri(addon.url)
+            maybeRunAutomaticSubtitleSyncV2()
         },
         onFetchAddonSubtitles = { fetchAddonSubtitlesForActiveItem() },
         onSubtitleStyleChanged = PlayerSettingsRepository::setSubtitleStyle,
