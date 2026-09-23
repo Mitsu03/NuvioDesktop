@@ -1063,6 +1063,10 @@
     <string name="settings_playback_anime_skip_description">Also search AnimeSkip for skip timestamps (requires client ID).</string>
     <string name="settings_playback_auto_play_next_episode">Auto-play Next Episode</string>
     <string name="settings_playback_auto_play_next_episode_description">Start next episode automatically when prompt appears.</string>
+    <string name="settings_playback_auto_sync">Automatic subtitle sync</string>
+    <string name="settings_playback_auto_sync_aggressive">Aggressive matching</string>
+    <string name="settings_playback_auto_sync_aggressive_description">Accept lower-confidence matches. Fixes more subtitles, at the cost of occasionally syncing one to the wrong timing.</string>
+    <string name="settings_playback_auto_sync_description">When you pick an addon subtitle, measure how far it drifts from the video’s own subtitle track and correct it automatically.</string>
     <string name="settings_playback_auto_play_next_episode_fallback">Fallback when binge group fails</string>
     <string name="settings_playback_auto_play_next_episode_fallback_description">Auto-select first available stream if binge group is not found. When off, shows the stream picker instead.</string>
     <string name="settings_playback_decoder_device_only">Device decoders only</string>
@@ -1167,6 +1171,7 @@
     <string name="settings_playback_section_stream_auto_play">STREAM AUTO-PLAY</string>
     <string name="settings_playback_section_stream_selection">STREAM SELECTION</string>
     <string name="settings_playback_section_subtitle_audio">SUBTITLE AND AUDIO</string>
+    <string name="settings_playback_section_subtitle_auto_sync">SUBTITLE AUTO SYNC</string>
     <string name="settings_playback_section_subtitle_rendering">SUBTITLE RENDERING</string>
     <string name="settings_playback_selected_count">%1$d selected</string>
     <string name="settings_playback_show_loading_overlay">Loading Overlay</string>
@@ -1403,6 +1408,9 @@
     <string name="player_auto_skip_intro_notification">Intro skipped to %1$s</string>
     <string name="player_auto_skip_recap_notification">Recap skipped to %1$s</string>
     <string name="player_auto_skip_outro_notification">Outro skipped to %1$s</string>
+    <string name="player_auto_sync_applied">Subtitles synced automatically (%1$s) ✅</string>
+    <string name="player_auto_sync_failed">Couldn't sync these subtitles automatically ❌</string>
+    <string name="player_auto_sync_running">Syncing subtitles…</string>
     <string name="compose_player_no_subtitles_found">No subtitles found</string>
     <string name="lang_afrikaans">Afrikaans</string>
     <string name="lang_albanian">Albanian</string>

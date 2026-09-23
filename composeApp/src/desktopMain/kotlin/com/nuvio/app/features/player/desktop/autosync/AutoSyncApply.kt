@@ -2,6 +2,8 @@ package com.nuvio.app.features.player.desktop.autosync
 
 import com.nuvio.app.core.storage.DesktopStorage
 import com.nuvio.app.features.player.PlayerScreenRuntime
+import com.nuvio.app.features.player.SUBTITLE_DELAY_MAX_MS
+import com.nuvio.app.features.player.SUBTITLE_DELAY_MIN_MS
 import com.nuvio.app.features.player.SubtitleSyncCue
 import com.nuvio.app.features.player.autosync.AutoSyncTimelineRetimeResult
 import com.nuvio.app.features.player.playbackSession
@@ -10,6 +12,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Applies an [AutoSyncTimelineRetimeResult] to the mpv-backed desktop player.
@@ -21,10 +25,10 @@ import kotlin.math.roundToInt
  * - Near-unity scale (the common case: a subtitle that's simply early/late): a single constant
  *   offset covers it, applied via the existing [setSubtitleDelay] sink (same one the manual
  *   "capture a line" AutoSync tool already uses, so it's exercised, persisted-per-video code).
- * - Real scale drift (FPS mismatch): mpv has no per-cue timeline hook, so this regenerates the
- *   subtitle as a new .srt with the algorithm's per-cue retimed timestamps baked in, and swaps
- *   it in via `setSubtitleUri` (already wired to mpv's `sub-add ... select`, which auto-selects
- *   the new track -- see player_bridge.cpp).
+ * - Real scale drift (FPS mismatch), or an offset larger than `sub-delay` can hold: mpv has no
+ *   per-cue timeline hook, so this regenerates the subtitle as a new .srt with the algorithm's
+ *   per-cue retimed timestamps baked in, and swaps it in via `setSubtitleUri` (already wired to
+ *   mpv's `sub-add ... select`, which auto-selects the new track -- see player_bridge.cpp).
  *
  * `sub-delay` is a global mpv property that survives a `sub-add` unchanged, so the regenerated-
  * file path must explicitly zero it afterwards -- otherwise a stale manual offset from before
@@ -35,21 +39,36 @@ internal object AutoSyncApply {
     // "scale correction" is indistinguishable from a constant offset in practice.
     private const val DELAY_ONLY_SCALE_TOLERANCE = 0.0015
 
-    fun apply(
+    /**
+     * Returns the correction that reached the player, or null when nothing was applied -- the
+     * caller turns that into the on-screen result the viewer sees.
+     */
+    suspend fun apply(
         runtime: PlayerScreenRuntime,
         result: AutoSyncTimelineRetimeResult,
         originalCues: List<SubtitleSyncCue>,
-    ) {
+    ): AutoSyncCorrection? {
         if (!result.confident) {
             AutoSyncDebugLog.info { "apply skipped reason=not-confident" }
-            return
+            return null
         }
 
-        if (abs(result.alignmentScale - 1.0) <= DELAY_ONLY_SCALE_TOLERANCE) {
-            val offsetMs = result.alignmentInterceptMs.roundToInt()
+        val offsetMs = result.alignmentInterceptMs.roundToInt()
+        if (fitsDelayOnly(result.alignmentScale, offsetMs)) {
             AutoSyncDebugLog.info { "apply delay-only offsetMs=$offsetMs" }
             runtime.setSubtitleDelay(offsetMs)
-            return
+            return AutoSyncCorrection(offsetMs = offsetMs, retimedFile = false)
+        }
+        if (abs(result.alignmentScale - 1.0) <= DELAY_ONLY_SCALE_TOLERANCE) {
+            // A pure offset, but one `sub-delay` cannot express: setSubtitleDelay coerces into
+            // +/-60s (the range the manual delay UI offers), so applying it here would silently
+            // land on the clamp -- a subtitle still out of sync, and no worse-case signal than a
+            // correct sync. Fall through to the regenerated-file path, which bakes the shift into
+            // the timestamps and has no such ceiling.
+            AutoSyncDebugLog.info {
+                "apply offset-out-of-delay-range offsetMs=$offsetMs " +
+                    "limit=$SUBTITLE_DELAY_MIN_MS..$SUBTITLE_DELAY_MAX_MS falling back to retimed file"
+            }
         }
 
         if (result.cues.size != originalCues.size) {
@@ -60,14 +79,16 @@ internal object AutoSyncApply {
                 "apply skipped reason=cue-count-mismatch retimed=${result.cues.size} " +
                     "original=${originalCues.size}"
             }
-            return
+            return null
         }
 
-        val srt = buildRetimedSrt(result, originalCues)
-        val file = writeRetimedSubtitle(runtime.playbackSession.videoId, srt)
+        // Serializing ~900 cues and writing them out has no business on the UI thread either.
+        val file = withContext(Dispatchers.IO) {
+            writeRetimedSubtitle(runtime.playbackSession.videoId, buildRetimedSrt(result, originalCues))
+        }
         if (file == null) {
             AutoSyncDebugLog.warn { "apply skipped reason=write-failed" }
-            return
+            return null
         }
 
         AutoSyncDebugLog.info {
@@ -75,7 +96,18 @@ internal object AutoSyncApply {
         }
         runtime.playerController?.setSubtitleUri(file.toString())
         runtime.setSubtitleDelay(0)
+        return AutoSyncCorrection(offsetMs = offsetMs, retimedFile = true)
     }
+
+    /**
+     * Delay-only is usable when the correction is a constant offset AND that offset is one the
+     * player's `sub-delay` sink can actually hold -- [setSubtitleDelay] coerces into
+     * [SUBTITLE_DELAY_MIN_MS]..[SUBTITLE_DELAY_MAX_MS], so an offset outside it would be applied
+     * as the clamp rather than as itself.
+     */
+    internal fun fitsDelayOnly(scale: Double, offsetMs: Int): Boolean =
+        abs(scale - 1.0) <= DELAY_ONLY_SCALE_TOLERANCE &&
+            offsetMs in SUBTITLE_DELAY_MIN_MS..SUBTITLE_DELAY_MAX_MS
 
     private fun buildRetimedSrt(
         result: AutoSyncTimelineRetimeResult,
@@ -114,3 +146,9 @@ internal object AutoSyncApply {
         }.getOrNull()
     }
 }
+
+/** What AutoSync actually pushed into the player, for the viewer-facing message. */
+internal data class AutoSyncCorrection(
+    val offsetMs: Int,
+    val retimedFile: Boolean,
+)

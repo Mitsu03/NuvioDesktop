@@ -658,6 +658,41 @@ private fun PlaybackSettingsSection(
             }
         }
 
+        if (SubtitleAutoSyncSettings.isSupported) {
+            var autoSyncEnabled by remember { mutableStateOf(SubtitleAutoSyncSettings.isEnabled) }
+            var autoSyncAggressive by remember { mutableStateOf(SubtitleAutoSyncSettings.isAggressiveMode) }
+
+            SettingsSection(
+                title = stringResource(Res.string.settings_playback_section_subtitle_auto_sync),
+                isTablet = isTablet,
+            ) {
+                SettingsGroup(isTablet = isTablet) {
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_playback_auto_sync),
+                        description = stringResource(Res.string.settings_playback_auto_sync_description),
+                        checked = autoSyncEnabled,
+                        isTablet = isTablet,
+                        onCheckedChange = { enabled ->
+                            SubtitleAutoSyncSettings.setEnabled(enabled)
+                            autoSyncEnabled = enabled
+                        },
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsSwitchRow(
+                        title = stringResource(Res.string.settings_playback_auto_sync_aggressive),
+                        description = stringResource(Res.string.settings_playback_auto_sync_aggressive_description),
+                        checked = autoSyncAggressive,
+                        enabled = autoSyncEnabled,
+                        isTablet = isTablet,
+                        onCheckedChange = { enabled ->
+                            SubtitleAutoSyncSettings.setAggressiveMode(enabled)
+                            autoSyncAggressive = enabled
+                        },
+                    )
+                }
+            }
+        }
+
         if (P2pSettingsRepository.isVisible) {
             SettingsSection(
                 title = stringResource(Res.string.settings_playback_section_p2p),

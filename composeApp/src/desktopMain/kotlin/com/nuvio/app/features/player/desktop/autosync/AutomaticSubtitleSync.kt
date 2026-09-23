@@ -8,6 +8,8 @@ import com.nuvio.app.features.player.autosync.AutoSyncTimelineRetimeResult
 import com.nuvio.app.features.player.autosync.AutoSyncTimelineRetimer
 import com.nuvio.app.features.player.sanitizePlaybackHeaders
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Desktop AutoSync V2 orchestrator -- a deliberately simplified version of NuvioTV's
@@ -24,7 +26,19 @@ import kotlinx.coroutines.CancellationException
 internal object AutomaticSubtitleSync {
     private const val MIN_TARGET_CUES = 8
 
+    /**
+     * Owns its own dispatcher rather than trusting the caller's: the container indexing and the
+     * retiming matcher are both seconds of CPU work on a full-length episode, and the natural
+     * caller is a Compose `rememberCoroutineScope()`, which is the UI thread. Running there
+     * freezes the player for as long as the sync takes.
+     */
     suspend fun run(
+        sourceUrl: String,
+        sourceHeaders: Map<String, String>,
+        subtitle: AddonSubtitle,
+    ): AutoSyncRunOutcome? = withContext(Dispatchers.Default) { runOffMainThread(sourceUrl, sourceHeaders, subtitle) }
+
+    private suspend fun runOffMainThread(
         sourceUrl: String,
         sourceHeaders: Map<String, String>,
         subtitle: AddonSubtitle,

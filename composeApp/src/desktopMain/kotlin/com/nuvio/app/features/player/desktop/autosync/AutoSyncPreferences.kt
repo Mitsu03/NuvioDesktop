@@ -22,10 +22,9 @@ internal object AutoSyncPreferences {
     private var lastStartupSessionKey: Int? = null
     private var lastStartupPlaybackKey: String? = null
 
-    // TODO(feat/autosync-v2): defaults to true only on this dev/testing branch so the feature is
-    // immediately exercisable in the running app without a settings UI yet. Revert the fallback
-    // to `false` (proper opt-in) once a real toggle exists -- do not ship this default as-is.
-    private val _enabled = MutableStateFlow(store.getBoolean(KEY_ENABLED) ?: true)
+    // Opt-in: the toggle lives in Settings -> Playback -> Subtitle Auto Sync
+    // (see SubtitleAutoSyncSettings).
+    private val _enabled = MutableStateFlow(store.getBoolean(KEY_ENABLED) ?: false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
 
     private val _aggressiveMode = MutableStateFlow(store.getBoolean(KEY_AGGRESSIVE_MODE) ?: true)
