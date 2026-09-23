@@ -1206,7 +1206,7 @@ private data class NativeControlsStructureKey(
     val isFullscreen: Boolean,
 )
 
-private fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
+internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
     buildString {
         append('{')
         appendJsonField("title", title)
@@ -1244,9 +1244,13 @@ private fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
         appendJsonField("episodesLabel", episodesLabel)
         // The serializer is hand-rolled: a field without a line here is silently
         // dropped and the WebView simply never sees it.
+        append(',')
         appendJsonField("watchTogetherEnabled", watchTogetherEnabled)
+        append(',')
         appendJsonField("watchTogetherActive", watchTogetherActive)
+        append(',')
         appendJsonField("watchTogetherLabel", watchTogetherLabel)
+        append(',')
         appendJsonField("watchTogetherStatus", watchTogetherStatus)
         append(',')
         appendJsonField("externalPlayerLabel", externalPlayerLabel)
