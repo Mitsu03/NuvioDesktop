@@ -1,6 +1,8 @@
 package com.nuvio.app.features.simkl
 
+import com.nuvio.app.features.tracking.TrackingExternalIds
 import com.nuvio.app.features.tracking.TrackingMediaKind
+import com.nuvio.app.features.tracking.TrackingMediaReference
 import com.nuvio.app.features.tracking.TrackingMembershipRemovalImpact
 import com.nuvio.app.features.watchprogress.WatchProgressSourceSimklPlayback
 import kotlinx.serialization.json.buildJsonObject
@@ -408,6 +410,66 @@ class SimklProjectionsTest {
 
         assertEquals(emptyList(), snapshot.alternateContentIdsFor("tt0000000"))
     }
+
+    @Test
+    fun `unknown addon id resolves to the Simkl entry through an alternative title`() {
+        val snapshot = SimklSyncSnapshot(entries = listOf(titledAnime(simkl = 3140896, title = "Overgeared")))
+        val reference = kitsuReference(title = "Temppal: Item no Chikara")
+
+        assertNull(snapshot.enrichMediaReference(reference).ids.simkl)
+
+        val enriched = snapshot.enrichMediaReference(reference, alternativeTitles = listOf("OVERGEARED", "템빨"))
+        assertEquals(3140896L, enriched.ids.simkl)
+        assertEquals(50743L, enriched.ids.kitsu)
+    }
+
+    @Test
+    fun `title match is rejected when more than one entry shares the title`() {
+        val snapshot = SimklSyncSnapshot(
+            entries = listOf(
+                titledAnime(simkl = 1, title = "Overgeared"),
+                titledAnime(simkl = 2, title = "Overgeared"),
+            ),
+        )
+
+        val enriched = snapshot.enrichMediaReference(kitsuReference(title = "Overgeared"))
+
+        assertNull(enriched.ids.simkl)
+    }
+
+    @Test
+    fun `title match never crosses between a movie and a series`() {
+        val movie = SimklLibraryEntry(
+            mediaType = SimklMediaType.MOVIES,
+            status = SimklListStatus.COMPLETED,
+            movie = SimklMedia(title = "Overgeared", ids = buildJsonObject { put("simkl", 9L) }),
+        )
+
+        val enriched = SimklSyncSnapshot(entries = listOf(movie))
+            .enrichMediaReference(kitsuReference(title = "Overgeared"))
+
+        assertNull(enriched.ids.simkl)
+    }
+
+    private fun titledAnime(simkl: Long, title: String): SimklLibraryEntry = SimklLibraryEntry(
+        mediaType = SimklMediaType.ANIME,
+        status = SimklListStatus.WATCHING,
+        animeType = "tv",
+        show = SimklMedia(
+            title = title,
+            year = 2026,
+            ids = buildJsonObject {
+                put("simkl", simkl)
+                put("mal", 64340L)
+            },
+        ),
+    )
+
+    private fun kitsuReference(title: String): TrackingMediaReference = TrackingMediaReference(
+        kind = TrackingMediaKind.ANIME,
+        title = title,
+        ids = TrackingExternalIds(kitsu = 50743L),
+    )
 
     private fun animeEntry(
         simkl: Long,

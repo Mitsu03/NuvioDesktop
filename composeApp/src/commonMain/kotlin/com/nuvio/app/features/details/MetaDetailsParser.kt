@@ -62,6 +62,7 @@ internal object MetaDetailsParser {
             links = links,
             seasonPosters = meta.seasonPosters(videos),
             videos = videos,
+            aliases = meta.stringList("aliases"),
         )
     }
 

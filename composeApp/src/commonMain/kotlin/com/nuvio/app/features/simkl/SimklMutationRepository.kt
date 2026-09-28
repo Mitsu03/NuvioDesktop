@@ -1,5 +1,6 @@
 package com.nuvio.app.features.simkl
 
+import com.nuvio.app.features.details.MetaDetailsRepository
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.tracking.TrackingEpisode
 import com.nuvio.app.features.tracking.TrackingExternalIds
@@ -16,6 +17,7 @@ import com.nuvio.app.features.tracking.TrackingRefreshIntent
 import com.nuvio.app.features.tracking.TrackingScrobbleAction
 import com.nuvio.app.features.tracking.TrackingScrobbleEvent
 import com.nuvio.app.features.tracking.TrackingScrobbler
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -173,7 +175,7 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
         SimklSyncRepository.ensureLoaded()
         val snapshot = SimklSyncRepository.state.value.snapshot
         val resolved = items.map { item ->
-            val enriched = snapshot.enrichMediaReference(item.media)
+            val enriched = snapshot.enrichWithCatalogAliases(item.media)
             item.copy(media = enriched.resolveAnimeEpisodeForSimkl())
         }
         return service.addToHistory(resolved)
@@ -194,7 +196,7 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
     ) {
         if (!isActiveProfile(profileId)) return
         SimklSyncRepository.ensureLoaded()
-        val enriched = SimklSyncRepository.state.value.snapshot.enrichMediaReference(event.media)
+        val enriched = SimklSyncRepository.state.value.snapshot.enrichWithCatalogAliases(event.media)
         val result = service.scrobble(
             action = action,
             event = event.copy(
@@ -204,6 +206,30 @@ object SimklMutationRepository : TrackingListWriter, TrackingHistoryWriter, Trac
         if (action != TrackingScrobbleAction.START) {
             SimklSyncRepository.commitScrobble(result)
         }
+    }
+
+    /**
+     * When neither the addon's ids nor its title match the Simkl list, retry with the
+     * alternative titles the addon publishes for the item (Kitsu lists the English name
+     * there, which is often the only one Simkl knows).
+     */
+    private suspend fun SimklSyncSnapshot.enrichWithCatalogAliases(
+        media: TrackingMediaReference,
+    ): TrackingMediaReference {
+        val enriched = enrichMediaReference(media)
+        if (enriched.ids.simkl != null) return enriched
+        val catalog = media.catalog ?: return enriched
+        val meta = MetaDetailsRepository.peek(catalog.contentType, catalog.contentId)
+            ?: try {
+                MetaDetailsRepository.fetch(catalog.contentType, catalog.contentId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                null
+            }
+            ?: return enriched
+        val alternativeTitles = meta.aliases + meta.name
+        return enrichMediaReference(media, alternativeTitles)
     }
 
     private fun isActiveProfile(profileId: Int): Boolean = ProfileRepository.activeProfileId == profileId
