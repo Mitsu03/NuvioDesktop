@@ -15,6 +15,7 @@ import com.nuvio.app.features.watched.watchedItemKey
 import com.nuvio.app.features.watchprogress.WatchProgressEntry
 import com.nuvio.app.features.watchprogress.WatchProgressSourceSimklPlayback
 import com.nuvio.app.features.watchprogress.buildPlaybackVideoId
+import kotlin.math.abs
 
 internal data class SimklWatchedProjection(
     val items: List<WatchedItem>,
@@ -261,10 +262,13 @@ internal fun SimklSyncSnapshot.mediaReference(
     )
 }
 
-internal fun SimklSyncSnapshot.enrichMediaReference(reference: TrackingMediaReference): TrackingMediaReference {
+internal fun SimklSyncSnapshot.enrichMediaReference(
+    reference: TrackingMediaReference,
+    alternativeTitles: Collection<String> = emptyList(),
+): TrackingMediaReference {
     val entry = entries.firstOrNull { candidate ->
         candidate.media?.toTrackingExternalIds()?.sharesIdentityWith(reference.ids) == true
-    } ?: return reference
+    } ?: entryMatchingTitle(reference, alternativeTitles) ?: return reference
     val media = entry.media ?: return reference
     val kind = when {
         entry.mediaType == SimklMediaType.MOVIES -> TrackingMediaKind.MOVIE
@@ -280,6 +284,30 @@ internal fun SimklSyncSnapshot.enrichMediaReference(reference: TrackingMediaRefe
         ids = media.toTrackingExternalIds().mergeMissing(reference.ids),
     )
 }
+
+/**
+ * Last resort when none of the addon's ids is known to Simkl (e.g. a Kitsu id Simkl has no
+ * mapping for): match the user's own list by title. Only one unambiguous entry of the same
+ * kind, with a compatible year, is accepted.
+ */
+private fun SimklSyncSnapshot.entryMatchingTitle(
+    reference: TrackingMediaReference,
+    alternativeTitles: Collection<String>,
+): SimklLibraryEntry? {
+    val wanted = (listOfNotNull(reference.title) + alternativeTitles)
+        .map(::simklTitleKey)
+        .filterTo(mutableSetOf(), String::isNotEmpty)
+    if (wanted.isEmpty()) return null
+    val wantsMovie = reference.kind == TrackingMediaKind.MOVIE
+    return entries.filter { entry ->
+        val media = entry.media ?: return@filter false
+        entry.isMovieEntry() == wantsMovie &&
+            media.title?.let(::simklTitleKey) in wanted &&
+            (reference.year == null || media.year == null || abs(reference.year - media.year) <= 1)
+    }.distinctBy(SimklLibraryEntry::stableKey).singleOrNull()
+}
+
+private fun simklTitleKey(title: String): String = title.lowercase().filter(Char::isLetterOrDigit)
 
 internal fun SimklMedia.toTrackingExternalIds(): TrackingExternalIds = TrackingExternalIds(
     simkl = ids.simklIdValue()?.toLongOrNull(),

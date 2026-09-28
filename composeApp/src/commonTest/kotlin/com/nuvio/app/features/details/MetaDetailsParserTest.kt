@@ -46,6 +46,18 @@ class MetaDetailsParserTest {
     }
 
     @Test
+    fun `parse reads alternative titles from aliases`() {
+        val meta = MetaDetailsParser.parse(
+            """
+            {"meta":{"id":"kitsu:50743","type":"series","name":"Temppal: Item no Chikara",
+              "aliases":["Temppal: Item no Chikara","OVERGEARED","템빨",""]}}
+            """.trimIndent(),
+        )
+
+        assertEquals(listOf("Temppal: Item no Chikara", "OVERGEARED", "템빨"), meta.aliases)
+    }
+
+    @Test
     fun `parse keeps titles that merely contain brackets`() {
         val result = MetaDetailsParser.parse(
             """
