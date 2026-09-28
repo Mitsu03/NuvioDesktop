@@ -40,15 +40,18 @@ internal data class SimklStoredAuthState(
     val hasFetchedUserSettings: Boolean = false,
     val settingsActivityWatermark: String? = null,
     val tokenExpiresAtEpochMs: Long? = null,
+    val refreshTokenExpiresAtEpochMs: Long? = null,
     val pendingAuthorizationState: String? = null,
     val pendingAuthorizationStartedAtEpochMs: Long? = null,
     val pendingPinUserCode: String? = null,
+    val pendingPinDeviceCode: String? = null,
     val pendingPinVerificationUrl: String? = null,
     val pendingPinIntervalSeconds: Int? = null,
     val pendingPinExpiresAtEpochMs: Long? = null,
 ) {
     val hasPendingPinAuthorization: Boolean
         get() = !pendingPinUserCode.isNullOrBlank() &&
+            !pendingPinDeviceCode.isNullOrBlank() &&
             !pendingPinVerificationUrl.isNullOrBlank() &&
             pendingPinIntervalSeconds != null &&
             pendingPinExpiresAtEpochMs != null

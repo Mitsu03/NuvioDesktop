@@ -55,6 +55,8 @@ internal fun buildSimklAuthorizationUrl(
     append("&code_challenge=")
     append(material.challenge.encodeURLParameter())
     append("&code_challenge_method=S256")
+    append("&scope=")
+    append(SIMKL_SCOPE.encodeURLParameter())
     append("&state=")
     append(material.state.encodeURLParameter())
     append("&app-name=")
