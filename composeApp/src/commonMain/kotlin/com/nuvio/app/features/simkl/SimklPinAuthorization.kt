@@ -4,55 +4,64 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-internal data class SimklPinResponse(
-    val result: String? = null,
-    val message: String? = null,
+internal data class SimklDeviceRequest(
+    @SerialName("client_id") val clientId: String,
+    val scope: String,
+)
+
+@Serializable
+internal data class SimklDeviceResponse(
     @SerialName("device_code") val deviceCode: String? = null,
     @SerialName("user_code") val userCode: String? = null,
     @SerialName("verification_uri") val verificationUri: String? = null,
-    @SerialName("verification_url") val verificationUrl: String? = null,
+    @SerialName("verification_uri_complete") val verificationUriComplete: String? = null,
     @SerialName("expires_in") val expiresIn: Long? = null,
     val interval: Int? = null,
-    @SerialName("access_token") val accessToken: String? = null,
+)
+
+@Serializable
+internal data class SimklDeviceTokenRequest(
+    @SerialName("client_id") val clientId: String,
+    @SerialName("device_code") val deviceCode: String,
+    @SerialName("grant_type") val grantType: String = "urn:ietf:params:oauth:grant-type:device_code",
 )
 
 internal data class SimklPendingPinAuthorization(
     val userCode: String,
+    val deviceCode: String,
     val verificationUrl: String,
     val intervalSeconds: Int,
     val expiresAtEpochMs: Long,
 )
 
 internal sealed interface SimklPinPollResult {
-    data class Authorized(val accessToken: String) : SimklPinPollResult
+    data class Authorized(
+        val accessToken: String,
+        val refreshToken: String?,
+        val expiresInSeconds: Long?,
+    ) : SimklPinPollResult
     data object Pending : SimklPinPollResult
-    data object Gone : SimklPinPollResult
+    data class SlowDown(val addSeconds: Int = 5) : SimklPinPollResult
+    data object Expired : SimklPinPollResult
     data object Failed : SimklPinPollResult
 }
 
-internal fun SimklPinResponse.toPendingAuthorization(
+internal fun SimklDeviceResponse.toPendingAuthorization(
     nowEpochMs: Long,
 ): SimklPendingPinAuthorization? {
-    if (!result.equals("OK", ignoreCase = true)) return null
     val code = userCode?.trim()?.takeIf(String::isNotEmpty) ?: return null
-    val url = verificationUri?.trim()?.takeIf(String::isNotEmpty)
-        ?: verificationUrl?.trim()?.takeIf(String::isNotEmpty)
+    val device = deviceCode?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    val url = verificationUriComplete?.trim()?.takeIf(String::isNotEmpty)
+        ?: verificationUri?.trim()?.takeIf(String::isNotEmpty)
         ?: return null
     val lifetimeSeconds = expiresIn?.coerceAtLeast(1L) ?: 900L
     return SimklPendingPinAuthorization(
         userCode = code,
+        deviceCode = device,
         verificationUrl = url,
         intervalSeconds = interval?.coerceAtLeast(1) ?: 5,
         expiresAtEpochMs = nowEpochMs + lifetimeSeconds * 1_000L,
     )
-}
-
-internal fun SimklPinResponse.toPollResult(): SimklPinPollResult = when {
-    !deviceCode.isNullOrBlank() -> SimklPinPollResult.Gone
-    result.equals("OK", ignoreCase = true) && !accessToken.isNullOrBlank() ->
-        SimklPinPollResult.Authorized(accessToken.trim())
-    result.equals("KO", ignoreCase = true) -> SimklPinPollResult.Pending
-    else -> SimklPinPollResult.Failed
 }
 
 internal fun isSimklPinAuthorizationExpired(

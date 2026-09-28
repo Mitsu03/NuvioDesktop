@@ -3,35 +3,34 @@ package com.nuvio.app.features.simkl
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SimklPinAuthorizationTest {
     @Test
-    fun `pin initialization uses documented code url interval and expiry`() {
-        val pending = SimklPinResponse(
-            result = "OK",
+    fun `device initialization uses documented codes url interval and expiry`() {
+        val pending = SimklDeviceResponse(
             deviceCode = "DEVICE_CODE",
-            userCode = "ABCDE",
+            userCode = "BDWP-HQPK",
             verificationUri = "https://simkl.com/pin",
-            verificationUrl = "https://legacy.example/pin",
+            verificationUriComplete = "https://simkl.com/pin?user_code=BDWP-HQPK",
             expiresIn = 900,
             interval = 5,
         ).toPendingAuthorization(nowEpochMs = 1_000L)
 
-        assertEquals("ABCDE", pending?.userCode)
-        assertEquals("https://simkl.com/pin", pending?.verificationUrl)
+        assertEquals("BDWP-HQPK", pending?.userCode)
+        assertEquals("DEVICE_CODE", pending?.deviceCode)
+        assertEquals("https://simkl.com/pin?user_code=BDWP-HQPK", pending?.verificationUrl)
         assertEquals(5, pending?.intervalSeconds)
         assertEquals(901_000L, pending?.expiresAtEpochMs)
     }
 
     @Test
-    fun `pin initialization accepts the legacy verification url alias`() {
-        val pending = SimklPinResponse(
-            result = "OK",
+    fun `device initialization falls back to the bare verification uri`() {
+        val pending = SimklDeviceResponse(
+            deviceCode = "DEVICE_CODE",
             userCode = "FGHIJ",
-            verificationUrl = "https://simkl.com/pin",
+            verificationUri = "https://simkl.com/pin",
         ).toPendingAuthorization(nowEpochMs = 2_000L)
 
         assertEquals("https://simkl.com/pin", pending?.verificationUrl)
@@ -40,48 +39,21 @@ class SimklPinAuthorizationTest {
     }
 
     @Test
-    fun `invalid pin initialization responses are rejected`() {
-        assertNull(SimklPinResponse(result = "KO").toPendingAuthorization(0L))
+    fun `invalid device initialization responses are rejected`() {
+        assertNull(SimklDeviceResponse().toPendingAuthorization(0L))
         assertNull(
-            SimklPinResponse(
-                result = "OK",
+            SimklDeviceResponse(userCode = "ABCDE").toPendingAuthorization(0L),
+        )
+        assertNull(
+            SimklDeviceResponse(
+                deviceCode = "DEVICE_CODE",
                 userCode = "ABCDE",
             ).toPendingAuthorization(0L),
         )
     }
 
     @Test
-    fun `pin polling follows documented response shapes`() {
-        val authorized = SimklPinResponse(
-            result = "OK",
-            accessToken = "token",
-        ).toPollResult()
-
-        assertEquals("token", assertIs<SimklPinPollResult.Authorized>(authorized).accessToken)
-        assertEquals(
-            SimklPinPollResult.Pending,
-            SimklPinResponse(result = "KO", message = "Authorization pending").toPollResult(),
-        )
-        assertEquals(
-            SimklPinPollResult.Failed,
-            SimklPinResponse(result = "OK").toPollResult(),
-        )
-    }
-
-    @Test
-    fun `fresh code response stops polling the original code`() {
-        val result = SimklPinResponse(
-            result = "OK",
-            deviceCode = "DEVICE_CODE",
-            userCode = "KLMNO",
-            accessToken = "unexpected",
-        ).toPollResult()
-
-        assertEquals(SimklPinPollResult.Gone, result)
-    }
-
-    @Test
-    fun `pin expiry uses the server supplied deadline`() {
+    fun `device authorization expiry uses the server supplied deadline`() {
         assertFalse(isSimklPinAuthorizationExpired(10_000L, 9_999L))
         assertTrue(isSimklPinAuthorizationExpired(10_000L, 10_000L))
         assertTrue(isSimklPinAuthorizationExpired(null, 1L))
