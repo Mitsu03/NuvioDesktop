@@ -888,6 +888,7 @@ internal fun settingsSearchEntries(
         ),
         PlaybackSearchRow("meta-episode-cards", stringResource(Res.string.settings_meta_episode_cards), stringResource(Res.string.settings_meta_episode_cards_description)),
         PlaybackSearchRow("meta-blur-episodes", stringResource(Res.string.settings_meta_blur_unwatched_episodes), stringResource(Res.string.settings_meta_blur_unwatched_episodes_description)),
+        PlaybackSearchRow("meta-filler-episodes", stringResource(Res.string.settings_meta_filler_episodes), stringResource(Res.string.settings_meta_filler_episodes_description)),
     ).forEach { row ->
         addRow(
             page = SettingsPage.MetaScreen,

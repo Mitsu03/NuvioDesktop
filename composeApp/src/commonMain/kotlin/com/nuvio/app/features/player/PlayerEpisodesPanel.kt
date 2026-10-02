@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import com.nuvio.app.core.ui.NuvioAnimatedWatchedBadge
+import com.nuvio.app.features.filler.fillerTaggedTitle
+import com.nuvio.app.features.filler.isFiller
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.details.MetaVideo
@@ -76,6 +78,7 @@ fun PlayerEpisodesPanel(
     watchedKeys: Set<String>,
     blurUnwatchedEpisodes: Boolean,
     episodeStreamsState: EpisodeStreamsPanelState,
+    fillerEpisodes: Set<Pair<Int, Int>> = emptySet(),
     onSeasonSelected: (Int) -> Unit,
     onEpisodeSelected: (MetaVideo) -> Unit,
     onEpisodeStreamFilterSelected: (String?) -> Unit,
@@ -113,6 +116,7 @@ fun PlayerEpisodesPanel(
             if (episodeStreamsState.showStreams) {
                 EpisodeStreamsPanelContent(
                     state = episodeStreamsState,
+                    fillerEpisodes = fillerEpisodes,
                     onFilterSelected = onEpisodeStreamFilterSelected,
                     onStreamSelected = onEpisodeStreamSelected,
                     onBack = onBackToEpisodes,
@@ -129,6 +133,7 @@ fun PlayerEpisodesPanel(
                     progressByVideoId = progressByVideoId,
                     watchedKeys = watchedKeys,
                     blurUnwatchedEpisodes = blurUnwatchedEpisodes,
+                    fillerEpisodes = fillerEpisodes,
                     onSeasonSelected = onSeasonSelected,
                     onEpisodeSelected = onEpisodeSelected,
                     modifier = Modifier.weight(1f),
@@ -154,6 +159,7 @@ private fun EpisodesListPanelContent(
     progressByVideoId: Map<String, WatchProgressEntry>,
     watchedKeys: Set<String>,
     blurUnwatchedEpisodes: Boolean,
+    fillerEpisodes: Set<Pair<Int, Int>>,
     onSeasonSelected: (Int) -> Unit,
     onEpisodeSelected: (MetaVideo) -> Unit,
     modifier: Modifier = Modifier,
@@ -279,6 +285,7 @@ private fun EpisodesListPanelContent(
                         isCurrent = isCurrent,
                         isWatched = isWatched,
                         blurUnwatchedEpisodes = blurUnwatchedEpisodes,
+                        isFiller = fillerEpisodes.isFiller(episode.season, episode.episode),
                         onClick = { onEpisodeSelected(episode) },
                     )
                 }
@@ -322,6 +329,7 @@ private fun EpisodeRow(
     isCurrent: Boolean,
     isWatched: Boolean,
     blurUnwatchedEpisodes: Boolean,
+    isFiller: Boolean,
     onClick: () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -404,7 +412,7 @@ private fun EpisodeRow(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = episode.title,
+                text = fillerTaggedTitle(episode.title, isFiller),
                 color = tokens.colors.textPrimary,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
@@ -433,6 +441,7 @@ private fun EpisodeRow(
 @Composable
 private fun EpisodeStreamsPanelContent(
     state: EpisodeStreamsPanelState,
+    fillerEpisodes: Set<Pair<Int, Int>>,
     onFilterSelected: (String?) -> Unit,
     onStreamSelected: (StreamItem, MetaVideo) -> Unit,
     onBack: () -> Unit,
@@ -442,6 +451,7 @@ private fun EpisodeStreamsPanelContent(
     val tokens = MaterialTheme.nuvio
     val episode = state.selectedEpisode ?: return
     val streamsUiState = state.streamsUiState
+    val episodeTitle = fillerTaggedTitle(episode.title, fillerEpisodes.isFiller(episode.season, episode.episode))
 
     Column(modifier = modifier) {
         Row(
@@ -470,7 +480,7 @@ private fun EpisodeStreamsPanelContent(
                     }
                     if (episode.title.isNotBlank()) {
                         if (isNotEmpty()) append(" • ")
-                        append(episode.title)
+                        append(episodeTitle)
                     }
                 },
                 color = tokens.colors.textSecondary,

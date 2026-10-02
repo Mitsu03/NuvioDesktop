@@ -25,6 +25,10 @@ import com.nuvio.app.core.ui.themePalette
 import com.nuvio.app.features.debrid.DebridSettingsRepository
 import com.nuvio.app.features.debrid.DirectDebridPlaybackResolver
 import com.nuvio.app.features.details.MetaDetailsRepository
+import com.nuvio.app.features.filler.fillerTaggedTitle
+import com.nuvio.app.features.filler.isFiller
+import com.nuvio.app.features.filler.rememberFillerEpisodeKeys
+import com.nuvio.app.features.filler.withFillerTag
 import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.p2p.P2pStreamingState
@@ -68,6 +72,8 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
     val episodeNumber = activeEpisodeNumber
     val episodeTitle = activeEpisodeTitle
     val isEpisode = seasonNumber != null && episodeNumber != null
+    val fillerEpisodes = rememberFillerEpisodeKeys(playerMeta)
+    val displayedEpisodeTitle = displayedEpisodeTitle(fillerEpisodes)
 
     LaunchedEffect(runtime.title, runtime.poster, seasonNumber, episodeNumber, episodeTitle, playbackSnapshot.isPlaying) {
         val episodeLabel = if (isEpisode) {
@@ -197,7 +203,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
             Res.string.compose_player_episode_title_format,
             seasonNumber,
             episodeNumber,
-            episodeTitle.orEmpty(),
+            displayedEpisodeTitle.orEmpty(),
         )
     } else {
         ""
@@ -265,7 +271,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
         } else {
             activeProviderName
         },
-        pauseOverlayEpisodeTitle = activeEpisodeTitle.orEmpty(),
+        pauseOverlayEpisodeTitle = displayedEpisodeTitle.orEmpty(),
         pauseOverlayDescription = (activePauseDescription ?: activeStreamSubtitle).orEmpty(),
         resizeModeLabel = stringResource(resizeMode.labelRes),
         playbackSpeedLabel = formatPlaybackSpeedLabel(playbackSnapshot.playbackSpeed),
@@ -449,7 +455,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
                 Res.string.compose_player_episode_title_format,
                 it.season,
                 it.episode,
-                it.title,
+                fillerTaggedTitle(it.title, fillerEpisodes.isFiller(it.season, it.episode)),
             )
         }.orEmpty(),
         nextEpisodeThumbnail = nextEpisodeForControls?.thumbnail.orEmpty(),
@@ -568,7 +574,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
                 isEpisode = isEpisode,
                 seasonNumber = activeSeasonNumber,
                 episodeNumber = activeEpisodeNumber,
-                episodeTitle = activeEpisodeTitle,
+                episodeTitle = displayedEpisodeTitle,
                 pauseDescription = activePauseDescription ?: activeStreamSubtitle,
                 providerName = activeProviderName,
                 metrics = metrics,
@@ -616,6 +622,7 @@ private fun PlayerScreenRuntime.currentInitialPositionRequestKey(): String? {
 @Composable
 private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, isEpisode: Boolean) {
     val isInPip = rememberIsInPictureInPicture()
+    val displayedEpisodeTitle = displayedEpisodeTitle(rememberFillerEpisodeKeys(playerMeta))
     AnimatedVisibility(
         visible = (controlsVisible || showParentalGuide) && !playerControlsLocked && !isInPip,
         enter = fadeIn(),
@@ -627,7 +634,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
             providerName = activeProviderName,
             seasonNumber = activeSeasonNumber,
             episodeNumber = activeEpisodeNumber,
-            episodeTitle = activeEpisodeTitle,
+            episodeTitle = displayedEpisodeTitle,
             playbackSnapshot = playbackSnapshot,
             displayedPositionMs = displayedPositionMs,
             metrics = metrics,
@@ -1613,6 +1620,8 @@ private fun formatPlayerControlsCueTimestamp(timeMs: Long): String {
 @Composable
 private fun PlayerScreenRuntime.buildPlayerControlEpisodeItems(): List<PlayerControlEpisodeItem> {
     val items = mutableListOf<PlayerControlEpisodeItem>()
+    val fillerEpisodes = rememberFillerEpisodeKeys(playerMeta)
+    val fillerTag = stringResource(Res.string.episode_filler_tag)
     for ((index, video) in playerMetaVideos.withIndex()) {
         if (video.season == null && video.episode == null) continue
         val episodeVideoId = buildPlaybackVideoId(
@@ -1632,7 +1641,11 @@ private fun PlayerScreenRuntime.buildPlayerControlEpisodeItems(): List<PlayerCon
             PlayerControlEpisodeItem(
                 index = index,
                 id = video.id,
-                title = video.title,
+                title = if (fillerEpisodes.isFiller(video.season, video.episode)) {
+                    video.title.withFillerTag(fillerTag)
+                } else {
+                    video.title
+                },
                 code = video.playerControlsEpisodeCode(),
                 overview = video.overview.orEmpty(),
                 thumbnail = video.thumbnail.orEmpty(),
@@ -1748,7 +1761,10 @@ private fun BoxScope.RenderPlaybackOverlays(
             sliderEdgePadding = sliderEdgePadding,
             overlayBottomPadding = overlayBottomPadding,
             isSeries = isSeries && !isDesktop,
-            nextEpisodeInfo = nextEpisodeInfo,
+            nextEpisodeInfo = nextEpisodeInfo?.let { next ->
+                val isFiller = rememberFillerEpisodeKeys(playerMeta).isFiller(next.season, next.episode)
+                next.copy(title = fillerTaggedTitle(next.title, isFiller))
+            },
             showNextEpisodeCard = showNextEpisodeCard && !isDesktop,
             nextEpisodeAutoPlaySearching = nextEpisodeAutoPlaySearching,
             nextEpisodeAutoPlaySourceName = nextEpisodeAutoPlaySourceName,
@@ -1876,6 +1892,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
         watchProgressByVideoId = watchProgressUiState.byVideoIdForContent(parentMetaId),
         watchedKeys = watchedUiState.watchedKeys,
         blurUnwatchedEpisodes = metaScreenSettingsUiState.blurUnwatchedEpisodes,
+        fillerEpisodes = rememberFillerEpisodeKeys(playerMeta),
         episodeStreamsPanelState = episodeStreamsPanelState,
         episodeStreamsRepoState = episodeStreamsRepoState,
         onEpisodeSelectedForDownload = { episode ->
@@ -1987,4 +2004,11 @@ private fun watchTogetherStatusText(state: WatchTogetherUiState): String {
                 if (state.participants.isEmpty()) "" else "   ·   " + state.participants.size
         else -> "Watching with ${invite.baseUrl}"
     }
+}
+
+/** The active episode title as shown on screen; the filler tag never reaches progress, trackers or presence. */
+@Composable
+private fun PlayerScreenRuntime.displayedEpisodeTitle(fillerEpisodes: Set<Pair<Int, Int>>): String? {
+    val title = activeEpisodeTitle?.takeIf { it.isNotBlank() } ?: return activeEpisodeTitle
+    return fillerTaggedTitle(title, fillerEpisodes.isFiller(activeSeasonNumber, activeEpisodeNumber))
 }

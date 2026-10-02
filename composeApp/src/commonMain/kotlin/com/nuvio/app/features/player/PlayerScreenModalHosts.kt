@@ -68,6 +68,7 @@ internal fun PlayerScreenModalHosts(
     watchProgressByVideoId: Map<String, WatchProgressEntry>,
     watchedKeys: Set<String>,
     blurUnwatchedEpisodes: Boolean,
+    fillerEpisodes: Set<Pair<Int, Int>>,
     episodeStreamsPanelState: EpisodeStreamsPanelState,
     episodeStreamsRepoState: StreamsUiState,
     onEpisodeSelectedForDownload: (MetaVideo) -> Boolean,
@@ -180,6 +181,7 @@ internal fun PlayerScreenModalHosts(
             progressByVideoId = watchProgressByVideoId,
             watchedKeys = watchedKeys,
             blurUnwatchedEpisodes = blurUnwatchedEpisodes,
+            fillerEpisodes = fillerEpisodes,
             episodeStreamsState = episodeStreamsPanelState.copy(
                 streamsUiState = episodeStreamsRepoState,
             ),
