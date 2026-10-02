@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
+import com.nuvio.app.features.filler.fillerTaggedTitle
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
@@ -45,6 +46,7 @@ fun EpisodeWatchedActionSheet(
     onToggleSeasonWatched: () -> Unit,
     showPlayManually: Boolean = false,
     onPlayManually: (() -> Unit)? = null,
+    isFiller: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
@@ -65,6 +67,7 @@ fun EpisodeWatchedActionSheet(
             EpisodeActionSheetHeader(
                 episode = episode,
                 seasonLabel = seasonLabel,
+                isFiller = isFiller,
             )
             NuvioBottomSheetDivider()
             NuvioBottomSheetActionRow(
@@ -201,6 +204,7 @@ fun SeasonWatchedActionSheet(
 private fun EpisodeActionSheetHeader(
     episode: MetaVideo,
     seasonLabel: String,
+    isFiller: Boolean,
 ) {
     Column(
         modifier = Modifier
@@ -209,7 +213,7 @@ private fun EpisodeActionSheetHeader(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = episode.title,
+            text = fillerTaggedTitle(episode.title, isFiller),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,

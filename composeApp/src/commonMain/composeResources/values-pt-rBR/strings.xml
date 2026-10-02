@@ -657,6 +657,9 @@
     <string name="settings_meta_episodes_description">Temporadas e lista de episódios para séries.</string>
     <string name="settings_meta_blur_unwatched_episodes">Desfocar Episódios Não Assistidos</string>
     <string name="settings_meta_blur_unwatched_episodes_description">Desfocar thumbnails de episódios até serem assistidos para evitar spoilers.</string>
+    <string name="settings_meta_filler_episodes">Marcar episódios filler</string>
+    <string name="settings_meta_filler_episodes_description">Adiciona [Filler] aos episódios de anime que o AnimeFillerList classifica como filler puro. Episódios mistos de canon e filler não são marcados.</string>
+    <string name="episode_filler_tag">[Filler]</string>
     <string name="settings_meta_group_label">Grupo %1$d</string>
     <string name="settings_meta_more_like_this">Mais como este</string>
     <string name="settings_meta_more_like_this_description">Backdrops de recomendação do TMDB na página de detalhes</string>

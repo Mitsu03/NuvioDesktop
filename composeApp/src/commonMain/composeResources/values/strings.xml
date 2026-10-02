@@ -972,6 +972,9 @@
     <string name="settings_meta_episodes_description">Seasons and episode list for series.</string>
     <string name="settings_meta_blur_unwatched_episodes">Blur Unwatched Episodes</string>
     <string name="settings_meta_blur_unwatched_episodes_description">Blur episode thumbnails until watched to avoid spoilers.</string>
+    <string name="settings_meta_filler_episodes">Tag Filler Episodes</string>
+    <string name="settings_meta_filler_episodes_description">Adds [Filler] to anime episodes that AnimeFillerList marks as pure filler. Mixed canon/filler episodes are left alone.</string>
+    <string name="episode_filler_tag">[Filler]</string>
     <string name="settings_meta_group_label">Group %1$d</string>
     <string name="settings_meta_more_like_this">More like this</string>
     <string name="settings_meta_more_like_this_description">TMDB recommendation backdrops on detail page</string>
