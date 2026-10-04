@@ -298,6 +298,7 @@ let state = {
   nextEpisodeHeaderLabel: "Next episode",
   nextEpisodeTitle: "",
   nextEpisodeThumbnail: "",
+  nextEpisodeThumbnailBlurred: false,
   nextEpisodeStatus: "",
   nextEpisodeActionLabel: "Play",
   nextEpisodePlayable: false,
@@ -2103,6 +2104,7 @@ const renderNativePlaybackPrompts = () => {
 
   const showNextEpisode = Boolean(state.nextEpisodeVisible);
   const nextThumbUrl = setImageSource(nextEpisodeThumb, state.nextEpisodeThumbnail);
+  const blurNextThumb = Boolean(nextThumbUrl) && Boolean(state.nextEpisodeThumbnailBlurred);
   nextEpisodeHeader.textContent = state.nextEpisodeHeaderLabel || "Next episode";
   nextEpisodeTitle.textContent = state.nextEpisodeTitle || "";
   nextEpisodeStatus.textContent = state.nextEpisodeStatus || "";
@@ -2112,6 +2114,7 @@ const renderNativePlaybackPrompts = () => {
   nextEpisodeCard.classList.toggle("visible", showNextEpisode);
   nextEpisodeCard.classList.toggle("playable", Boolean(state.nextEpisodePlayable));
   nextEpisodeCard.classList.toggle("has-thumb", Boolean(nextThumbUrl));
+  nextEpisodeCard.classList.toggle("blur-thumb", blurNextThumb);
 };
 
 const isOpeningOverlayActive = () =>
