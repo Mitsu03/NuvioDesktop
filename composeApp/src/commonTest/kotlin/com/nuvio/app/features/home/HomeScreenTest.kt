@@ -124,7 +124,7 @@ class HomeScreenTest {
         )
 
         assertEquals(listOf("tt0944947:1:4", "movie-1"), result.map(ContinueWatchingItem::videoId))
-        assertEquals("S1E4 • Cripples, Bastards, and Broken Things", result.first().subtitle)
+        assertEquals("S1 E4 • Cripples, Bastards, and Broken Things", result.first().subtitle)
     }
 
     @Test
@@ -147,7 +147,7 @@ class HomeScreenTest {
         )
 
         assertEquals(1, result.size)
-        assertEquals("S1E5 • The Wolf and the Lion", result.single().subtitle)
+        assertEquals("S1 E5 • The Wolf and the Lion", result.single().subtitle)
     }
 
     @Test
@@ -197,7 +197,7 @@ class HomeScreenTest {
         )
 
         assertEquals(listOf("show:1:4"), result.map(ContinueWatchingItem::videoId))
-        assertEquals("S1E4 • Current", result.single().subtitle)
+        assertEquals("S1 E4 • Current", result.single().subtitle)
     }
 
     @Test

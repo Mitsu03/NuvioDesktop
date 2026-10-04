@@ -48,7 +48,18 @@ internal object NativePlayerBridge {
 
     external fun dispose(handle: Long)
     external fun updateControls(handle: Long, controlsJson: String)
+
+    /** macOS only: title, episode line, and poster for the system now-playing widget (Control Center). */
+    external fun setNowPlayingMetadata(handle: Long, title: String, subtitle: String, artworkUrl: String)
     external fun requestFocus(handle: Long)
+    external fun beginWindowDrag(handle: Long)
+    external fun setWindowResizable(windowHwnd: Long, enabled: Boolean)
+    external fun setWindowAspectRatio(windowHwnd: Long, ratio: Float)
+    external fun layoutNativeSubviews(handle: Long)
+    private external fun reparentSurfaceNative(handle: Long, hostViewPtr: Long)
+
+    fun reparentSurface(handle: Long, hostViewPtr: Long): Boolean =
+        runCatching { reparentSurfaceNative(handle, hostViewPtr) }.isSuccess
     external fun setPaused(handle: Long, paused: Boolean)
     external fun seekTo(handle: Long, positionMs: Long)
     external fun seekBy(handle: Long, offsetMs: Long)
