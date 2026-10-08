@@ -19,7 +19,8 @@ actual object AppFeaturePolicy {
     actual val trailerPlaybackMode: TrailerPlaybackMode =
         if (isWindowsDesktop) TrailerPlaybackMode.EXTERNAL else TrailerPlaybackMode.IN_APP
     actual val heroTrailerPlaybackSupported: Boolean = !isWindowsDesktop
-    actual val inAppUpdaterEnabled: Boolean = true
+    // Fork builds are deployed by the fork pipeline; the official installer would replace them.
+    actual val inAppUpdaterEnabled: Boolean = false
     actual val imdbRatingLogoEnabled: Boolean = true
     actual val mediaPlaybackForegroundServiceEnabled: Boolean = false
     actual val downloadForegroundServiceEnabled: Boolean = false
