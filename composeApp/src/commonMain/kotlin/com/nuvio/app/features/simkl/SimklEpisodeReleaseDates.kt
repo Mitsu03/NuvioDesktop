@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.core.time.EpisodeReleaseDatePlatform
 import com.nuvio.app.core.time.parseEpisodeReleaseEpochMs
 import com.nuvio.app.core.time.parseZonedIsoDateTimeToEpochMs
+import com.nuvio.app.features.addons.httpGetText
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.details.MetaVideo
 import com.nuvio.app.features.tracking.parseTrackingExternalIds
@@ -73,16 +74,14 @@ internal object SimklEpisodeReleaseDates {
             cache[source]?.takeIf { cached -> nowEpochMs < cached.expiresAtEpochMs }?.let { return it.releases }
         }
         val releases = try {
-            val response = SimklApi.client.execute(
-                SimklApiRequest(
-                    method = SimklHttpMethod.GET,
+            // Public data, fetched outside SimklApi.client so a meta load never queues behind sync.
+            val payload = httpGetText(
+                buildSimklApiUrl(
                     path = "/${source.path}/episodes/${source.simklId}",
                     query = mapOf("extended" to "full"),
-                    requiresAuthentication = false,
-                    retryPolicy = SimklRetryPolicy.NEVER,
                 ),
             )
-            parseSimklEpisodeReleases(json, response.body, isAnime = source.path == "anime")
+            parseSimklEpisodeReleases(json, payload, isAnime = source.path == "anime")
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             log.w { "Failed to fetch Simkl episodes ${source.path}/${source.simklId}: ${error.message}" }
