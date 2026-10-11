@@ -11,6 +11,7 @@ import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.filterReleasedItems
 import com.nuvio.app.features.mdblist.MdbListMetadataService
 import com.nuvio.app.features.mdblist.MdbListSettingsRepository
+import com.nuvio.app.features.simkl.SimklEpisodeReleaseDates
 import com.nuvio.app.features.simkl.SimklSyncRepository
 import com.nuvio.app.features.simkl.alternateContentIdsFor
 import com.nuvio.app.features.tmdb.TmdbMetadataService
@@ -260,6 +261,7 @@ object MetaDetailsRepository {
     private const val METADATA_PROVIDER_READY_TIMEOUT_MS = 10_000L
     private const val TMDB_ENRICH_TIMEOUT_MS = 5_000L
     private const val MDBLIST_ENRICH_TIMEOUT_MS = 5_000L
+    private const val SIMKL_RELEASE_DATES_TIMEOUT_MS = 5_000L
 
     private suspend fun tryFetchMeta(
         manifest: AddonManifest,
@@ -287,17 +289,18 @@ object MetaDetailsRepository {
                     settings = TmdbSettingsRepository.snapshot(),
                 )
             } ?: result
+            val simklDated = withSimklReleaseDates(meta = tmdbEnriched, fallbackItemId = id)
             val enriched = if (includeMdbList) {
                 MdbListSettingsRepository.ensureLoaded()
                 withTimeoutOrNull(MDBLIST_ENRICH_TIMEOUT_MS) {
                     MdbListMetadataService.enrichMeta(
-                        meta = tmdbEnriched,
+                        meta = simklDated,
                         fallbackItemId = id,
                         settings = MdbListSettingsRepository.snapshot(),
                     )
-                } ?: tmdbEnriched
+                } ?: simklDated
             } else {
-                tmdbEnriched
+                simklDated
             }
             log.d { "Parsed meta: type=${enriched.type}, name=${enriched.name}, videos=${enriched.videos.size}" }
             if (enriched.videos.isNotEmpty()) {
@@ -397,7 +400,13 @@ object MetaDetailsRepository {
                 id = id,
                 settings = TmdbSettingsRepository.snapshot(),
             )
-        }
+        }?.let { meta -> withSimklReleaseDates(meta = meta, fallbackItemId = id) }
+
+    /** Runs after TMDB so its release dates are the ones compared against Simkl's. */
+    private suspend fun withSimklReleaseDates(meta: MetaDetails, fallbackItemId: String): MetaDetails =
+        withTimeoutOrNull(SIMKL_RELEASE_DATES_TIMEOUT_MS) {
+            SimklEpisodeReleaseDates.enrichMeta(meta = meta, fallbackItemId = fallbackItemId)
+        } ?: meta
 
     private suspend fun publishLoadedMeta(
         requestKey: String,
