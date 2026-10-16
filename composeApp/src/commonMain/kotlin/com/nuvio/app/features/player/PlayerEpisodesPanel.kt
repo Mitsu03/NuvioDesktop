@@ -55,7 +55,6 @@ import com.nuvio.app.features.watching.application.WatchingState
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_back
 import nuvio.composeapp.generated.resources.action_close
-import nuvio.composeapp.generated.resources.compose_action_reload
 import nuvio.composeapp.generated.resources.compose_player_episode_code_episode_only
 import nuvio.composeapp.generated.resources.compose_player_episode_code_full
 import nuvio.composeapp.generated.resources.compose_player_no_episodes_available
@@ -463,10 +462,6 @@ private fun EpisodeStreamsPanelContent(
                 label = stringResource(Res.string.action_back),
                 onClick = onBack,
             )
-            PlayerDialogButton(
-                label = stringResource(Res.string.compose_action_reload),
-                onClick = onReload,
-            )
             Text(
                 text = buildString {
                     if (episode.season != null && episode.episode != null) {
@@ -496,6 +491,7 @@ private fun EpisodeStreamsPanelContent(
         PlayerProviderFilterRow(
             streamsUiState = streamsUiState,
             onFilterSelected = onFilterSelected,
+            onRefresh = onReload,
         )
 
         Spacer(Modifier.height(16.dp))
