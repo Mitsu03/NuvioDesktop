@@ -10,6 +10,23 @@ import kotlin.test.assertTrue
 class ContinueWatchingEnrichmentCacheTest {
 
     @Test
+    fun `legacy undated next up is refreshed without dropping dated episodes`() {
+        val profileId = 987
+        val source = WatchProgressSource.TRAKT
+        val key = ContinueWatchingEnrichmentCache.continueWatchingEnrichmentStorageKey(profileId, source)
+        ContinueWatchingEnrichmentStorage.savePayload(
+            key,
+            """{"nextUp":[{"contentId":"tt7441658","contentType":"series","name":"Black Clover","videoId":"tt7441658:2:4","season":2,"episode":4,"released":null,"lastWatched":1,"sortTimestamp":1},{"contentId":"tt2","contentType":"series","name":"Dated","videoId":"tt2:1:4","season":1,"episode":4,"released":"2026-10-24T14:00:00.000Z","lastWatched":2,"sortTimestamp":2}]}""",
+        )
+        ContinueWatchingEnrichmentCache.clearLocalState()
+
+        val snapshot = ContinueWatchingEnrichmentCache.getNextUpSnapshot(profileId, source)
+        assertEquals(listOf("tt2"), snapshot.map(CachedNextUpItem::contentId))
+
+        ContinueWatchingEnrichmentCache.clearAll(profileId)
+    }
+
+    @Test
     fun `storage keys are scoped by profile and effective source`() {
         val traktKey = ContinueWatchingEnrichmentCache.continueWatchingEnrichmentStorageKey(
             profileId = 2,
