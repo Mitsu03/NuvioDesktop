@@ -125,9 +125,7 @@ internal fun PlayerScreenRuntime.resetIdentityStateIfNeeded() {
     val identity = activePlaybackKey
     if (lastResetPlaybackIdentity != identity) {
         lastResetPlaybackIdentity = identity
-        // A guest follows the host's transport state. Defaulting to "play" here would start
-        // it on its own after a mirrored source switch, with the host still paused.
-        shouldPlay = !isWatchTogetherGuest
+        shouldPlay = true
         initialLoadCompleted = false
         speedBoostRestoreSpeed = null
         isHoldToSpeedGestureActive = false

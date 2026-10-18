@@ -49,8 +49,6 @@ import org.jetbrains.compose.resources.getString
 
 @Composable
 internal fun PlayerScreenRuntime.BindPlayerRuntimeEffects() {
-    BindWatchTogetherEffects()
-
     val currentFeedback = liveGestureFeedback ?: gestureFeedback
     LaunchedEffect(currentFeedback) {
         if (currentFeedback != null) {
@@ -821,11 +819,6 @@ internal fun PlayerScreenRuntime.removeFailedStreamFromCache() {
 }
 
 internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message: String?): Boolean {
-    // A guest plays the host's proxy URL, and the host rotates its token on every source
-    // switch — which shows up here as a transient 404. Re-resolving would then reach for an
-    // addon this machine may not even have installed, and surface an error that is not real.
-    if (isWatchTogetherGuest) return false
-
     if (ServerStreams.isServerSourceId(activeProviderAddonId)) return retryServerSourceAfterError(message)
     val failedUrl = activeSourceUrl
     if (!failedUrl.hasLikelyExpiringPlaybackCredentials()) return false

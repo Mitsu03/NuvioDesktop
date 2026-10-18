@@ -24,10 +24,6 @@ class ControlsJsonSerializerTest {
             listOf(
                 "subtitlesLabel",
                 "episodesLabel",
-                "watchTogetherEnabled",
-                "watchTogetherActive",
-                "watchTogetherLabel",
-                "watchTogetherStatus",
                 "externalPlayerLabel",
             ).forEach { key ->
                 assertTrue(key in parsed, "controls payload is missing \"$key\"")
