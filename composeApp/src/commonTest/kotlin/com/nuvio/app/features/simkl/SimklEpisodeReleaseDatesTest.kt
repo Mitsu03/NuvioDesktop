@@ -53,7 +53,7 @@ class SimklEpisodeReleaseDatesTest {
     }
 
     @Test
-    fun `a later or missing simkl date keeps the addon date`() {
+    fun `a later Simkl date keeps the addon date and a missing addon date is filled`() {
         val releases = mapOf(
             (1 to 1) to epochMs("2026-10-20T00:00:00Z"),
             (1 to 2) to epochMs("2026-10-01T00:00:00Z"),
@@ -65,7 +65,35 @@ class SimklEpisodeReleaseDatesTest {
             video(season = null, episode = null, released = "2026-10-16T00:00:00.000Z"),
         )
 
-        assertEquals(videos, videos.withEarlierSimklReleases(releases))
+        assertEquals(
+            videos.map { video ->
+                if (video.season == 1 && video.episode == 2) {
+                    video.copy(released = "2026-10-01T00:00:00.000Z")
+                } else {
+                    video
+                }
+            },
+            videos.withEarlierSimklReleases(releases),
+        )
+    }
+
+    @Test
+    fun `undated Black Clover episode uses its future Simkl air date`() {
+        val videos = listOf(
+            video(season = 2, episode = 3, released = "2026-10-17T14:00:00.000Z"),
+            video(season = 2, episode = 4, released = null),
+        )
+        val releases = parseSimklEpisodeReleases(
+            json,
+            """[{"type":"episode","episode":4,"date":"2026-10-24T23:00:00+09:00","aired":false,"tvdb":{"season":2,"episode":4}}]""",
+            isAnime = true,
+        )
+
+        assertEquals(true, videos.hasUndatedEpisode())
+        assertEquals(
+            listOf("2026-10-17T14:00:00.000Z", "2026-10-24T14:00:00.000Z"),
+            videos.withEarlierSimklReleases(releases).map(MetaVideo::released),
+        )
     }
 
     @Test

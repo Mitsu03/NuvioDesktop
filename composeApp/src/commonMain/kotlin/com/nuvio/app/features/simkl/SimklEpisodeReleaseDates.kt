@@ -28,9 +28,8 @@ private const val MILLIS_PER_DAY = 86_400_000L
 internal data class SimklEpisodeSource(val path: String, val simklId: Long)
 
 /**
- * Meta addons date an episode by its television broadcast, so a series that streams ahead of the
- * broadcast is listed as unaired while it is already out. Simkl dates the first availability, so
- * when it has an earlier date for the same season and episode, that date replaces the addon's.
+ * Meta addons can omit an episode's date or use a later television broadcast date. Simkl can
+ * supply the missing date or an earlier first-availability date for the same season and episode.
  */
 internal object SimklEpisodeReleaseDates {
     private val log = Logger.withTag("SimklReleaseDates")
@@ -41,8 +40,9 @@ internal object SimklEpisodeReleaseDates {
 
     suspend fun enrichMeta(meta: MetaDetails, fallbackItemId: String? = null): MetaDetails {
         val nowEpochMs = EpisodeReleaseDatePlatform.nowEpochMs()
-        // Only an episode the addon still lists as unaired can be wrong in a way that matters.
-        if (!meta.videos.hasUpcomingEpisode(nowEpochMs)) return meta
+        val hasUpcomingEpisode = meta.videos.hasUpcomingEpisode(nowEpochMs)
+        val hasUndatedEpisode = meta.videos.hasUndatedEpisode()
+        if (!hasUpcomingEpisode && !hasUndatedEpisode) return meta
 
         val contentIds = listOfNotNull(meta.id, meta.imdbId, fallbackItemId)
             .filter(::usesTvdbStyleNumbering)
@@ -50,8 +50,13 @@ internal object SimklEpisodeReleaseDates {
         if (contentIds.isEmpty()) return meta
 
         return try {
+            SimklSyncRepository.ensureLoaded()
             val sources = SimklSyncRepository.state.value.snapshot.episodeSourcesFor(contentIds)
-                .ifEmpty { searchEpisodeSources(contentIds, nowEpochMs) }
+                // An undated episode is common in old addon data. Avoid a network search for
+                // every such series; a matching Simkl library entry can supply its date.
+                .ifEmpty {
+                    if (hasUpcomingEpisode) searchEpisodeSources(contentIds, nowEpochMs) else emptyList()
+                }
             if (sources.isEmpty()) return meta
 
             val releases = mutableMapOf<Pair<Int, Int>, Long>()
@@ -148,6 +153,11 @@ private fun List<MetaVideo>.hasUpcomingEpisode(nowEpochMs: Long): Boolean = any 
         parseEpisodeReleaseEpochMs(video.released)?.let { it > nowEpochMs } == true
 }
 
+internal fun List<MetaVideo>.hasUndatedEpisode(): Boolean = any { video ->
+    (video.season ?: 0) > 0 && (video.episode ?: 0) > 0 &&
+        parseEpisodeReleaseEpochMs(video.released) == null
+}
+
 /** Every anime season is its own Simkl entry sharing the franchise IDs, so several can match. */
 internal fun SimklSyncSnapshot.episodeSourcesFor(contentIds: List<String>): List<SimklEpisodeSource> =
     entries
@@ -217,8 +227,12 @@ internal fun List<MetaVideo>.withEarlierSimklReleases(releases: Map<Pair<Int, In
         val season = video.season ?: return@map video
         val episode = video.episode ?: return@map video
         val simklEpochMs = releases[season to episode] ?: return@map video
-        val addonEpochMs = parseEpisodeReleaseEpochMs(video.released) ?: return@map video
-        if (simklEpochMs < addonEpochMs) video.copy(released = utcIsoDateTime(simklEpochMs)) else video
+        val addonEpochMs = parseEpisodeReleaseEpochMs(video.released)
+        if (addonEpochMs == null || simklEpochMs < addonEpochMs) {
+            video.copy(released = utcIsoDateTime(simklEpochMs))
+        } else {
+            video
+        }
     }
 }
 
