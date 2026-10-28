@@ -31,6 +31,8 @@ import com.nuvio.app.core.network.NetworkCondition
 import com.nuvio.app.core.network.NetworkStatusRepository
 import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
 import com.nuvio.app.core.ui.LocalNuvioNavBarScrollState
+import com.nuvio.app.core.ui.LocalVerticalBarPadding
+import com.nuvio.app.core.ui.nuvioHorizontalScrollBleed
 import com.nuvio.app.core.ui.ScreenActivityEffect
 import com.nuvio.app.core.ui.NuvioScreen
 import com.nuvio.app.core.ui.NuvioNetworkOfflineCard
@@ -150,7 +152,11 @@ fun HomeScreen(
 
     val addonsUiState by AddonRepository.uiState.collectAsStateWithLifecycle()
     val homeUiState by HomeRepository.uiState.collectAsStateWithLifecycle()
-    val homeSettingsUiState by HomeCatalogSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val homeHeroState = rememberHomeHeroState(homeUiState.heroItems)
+    val homeSettingsUiState by remember {
+        HomeCatalogSettingsRepository.snapshot()
+        HomeCatalogSettingsRepository.uiState
+    }.collectAsStateWithLifecycle()
     val homeListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val continueWatchingListState = rememberLazyListState()
     val upcomingListState = rememberLazyListState()
@@ -1000,6 +1006,7 @@ fun HomeScreen(
                 item(key = "home_hero", contentType = "hero") {
                     Crossfade(
                         targetState = showHeroSkeleton,
+                        modifier = Modifier.nuvioHorizontalScrollBleed(LocalVerticalBarPadding.current),
                         animationSpec = tween(320),
                         label = "HomeHeroLoading",
                     ) { isLoading ->
@@ -1012,13 +1019,15 @@ fun HomeScreen(
                             )
 
                             homeUiState.heroItems.isNotEmpty() -> HomeHeroSection(
-                                items = homeUiState.heroItems,
+                                items = homeHeroState.items,
                                 modifier = Modifier,
                                 viewportHeight = maxHeight,
                                 mobileBelowSectionHeightHint = mobileHeroBelowSectionHeightHint,
                                 sectionPadding = if (isDesktop) homeSectionPadding else null,
                                 listState = homeListState,
                                 stretchPx = { heroStretchState.stretchPx },
+                                showImdbRating = homeHeroState.showImdbRating,
+                                showMdbListRatings = homeHeroState.showMdbListRatings,
                                 onItemClick = onPosterClick,
                             )
 
