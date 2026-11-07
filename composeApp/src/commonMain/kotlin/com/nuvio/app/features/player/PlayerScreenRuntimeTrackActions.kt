@@ -93,6 +93,9 @@ internal fun PlayerScreenRuntime.persistAddonSubtitlePreference(subtitle: AddonS
 
 internal fun PlayerScreenRuntime.restorePersistedTrackPreferenceIfNeeded(): Boolean {
     if (trackPreferenceRestoreApplied) return true
+    // A pending carry-over describes the selection playing right now; it wins over the stored
+    // preference (same ordering as NuvioTV).
+    if (pendingEngineSwitchTrackPreference?.sourceIdentity == activePlaybackIdentity) return true
     val preference = PlayerTrackPreferenceStorage.load(parentMetaId)
     if (preference == null) {
         trackPreferenceRestoreApplied = true
@@ -212,6 +215,8 @@ internal fun PlayerScreenRuntime.refreshTracks() {
     }
 
     maybeRunAutomaticSubtitleSyncV2()
+    // The engine may have just switched: restore the selection captured before the switch.
+    applyPendingEngineSwitchTrackPreference()
 }
 
 private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTracks(
@@ -322,7 +327,10 @@ private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTrack
         if (!hasScannedTextTracksOnce) return
         if (isLoadingAddonSubtitles) {
             val currentTrack = subtitleTracks.firstOrNull { it.index == selectedSubtitleIndex }
-            if (currentTrack != null && !currentTrack.isForced) {
+            // The player may auto-select another language's forced track; keep only the wanted one.
+            val keepCurrentTrack = currentTrack != null && currentTrack.isForced &&
+                subtitleTrackMatchesLanguage(currentTrack, requiredForcedTarget)
+            if (currentTrack != null && !keepCurrentTrack) {
                 disableAutomaticSubtitleSelection()
             }
             return
