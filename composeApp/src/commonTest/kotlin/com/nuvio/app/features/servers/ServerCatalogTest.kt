@@ -1,6 +1,7 @@
 package com.nuvio.app.features.servers
 
 import com.nuvio.app.features.addons.AddonManifest
+import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.addons.AddonResource
 import com.nuvio.app.features.catalog.CatalogTarget
 import com.nuvio.app.features.home.MetaPreview
@@ -111,6 +112,7 @@ class ServerCatalogTest {
 
     @Test
     fun catalogDetailsSettingUsesCompatibleIdsOnly() = runTest {
+        AddonRepository.clearLocalState()
         val provider = FakeServerProvider().apply {
             indexedIds["0"] = TrackingExternalIds(imdb = "tt0111161", tmdb = 278)
             indexedIds["1"] = TrackingExternalIds(tmdb = 550)
