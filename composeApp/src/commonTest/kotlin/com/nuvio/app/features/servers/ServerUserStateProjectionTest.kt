@@ -2,14 +2,16 @@ package com.nuvio.app.features.servers
 
 import com.nuvio.app.features.details.MetaDetails
 import com.nuvio.app.features.tracking.TrackingExternalIds
+import com.nuvio.app.features.tracking.WatchProgressSource
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
+import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class ServerUserStateProjectionTest {
-    private val id = ServerItemRef("cfake", "7").encode()
+    private val id = ServerItemRef("cfake", "7-${Random.nextLong()}").encode()
 
     @AfterTest
     fun tearDown() {
@@ -20,6 +22,7 @@ class ServerUserStateProjectionTest {
 
     @Test
     fun importsServerProgressOnlyWhenEnabled() {
+        WatchProgressRepository.activateSource(WatchProgressSource.NUVIO_SYNC)
         val connection = installFakeServer()
         val details = ServerItemDetails(
             meta = MetaDetails(id = id, type = "movie", name = "Item 7"),
